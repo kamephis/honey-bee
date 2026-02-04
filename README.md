@@ -2,7 +2,7 @@
 
 Web-App zur Erstellung von Nutzwertanalysen und Anbietervergleichen im Projektkontext.
 
-## Features
+## Features!
 
 - Kriterien definieren und verwalten
 - Paarweiser Vergleich zur Gewichtung der Kriterien
