@@ -45,7 +45,7 @@ export function renderRadarChart(canvas: HTMLCanvasElement): void {
       borderColor: color.border,
       borderWidth: 2,
       pointBackgroundColor: color.border,
-      pointRadius: 3,
+      pointRadius: 4,
     };
   });
 
@@ -60,16 +60,17 @@ export function renderRadarChart(canvas: HTMLCanvasElement): void {
           beginAtZero: true,
           ticks: {
             stepSize: 0.2,
+            font: { size: 12 },
           },
           pointLabels: {
-            font: { size: 11 },
+            font: { size: 14 },
           },
         },
       },
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { padding: 20 },
+          labels: { padding: 24, font: { size: 14 } },
         },
       },
     },
