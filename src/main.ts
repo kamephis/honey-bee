@@ -591,7 +591,7 @@ function renderResultsSection(): HTMLElement {
 
   const grid = h('div', { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' });
   totals.forEach((t, i) => {
-    const isWinner = i === 0;
+    const isWinner = i === 0 && maxScore > 0;
     const card = h('div', { className: `relative bg-white rounded-xl border-2 p-7 transition-shadow hover:shadow-lg ${isWinner ? 'border-amber-400 shadow-lg' : 'border-gray-200'}` });
 
     if (isWinner) {
@@ -700,7 +700,7 @@ function renderResultsSection(): HTMLElement {
   const summary = h('div', { className: 'bg-white rounded-xl border border-gray-200 p-7 space-y-4' });
   summary.appendChild(h('h3', { className: 'text-lg font-semibold text-gray-700' }, 'Zusammenfassung & Empfehlung'));
 
-  if (totals.length > 0) {
+  if (totals.length > 0 && maxScore > 0) {
     const winner = totals[0];
     const recText = h('p', { className: 'text-base text-gray-700 leading-relaxed' });
     recText.innerHTML = `Basierend auf der Nutzwertanalyse mit ${project.criteria.length} gewichteten Kriterien und ${project.vendors.length} bewerteten Anbietern ist <strong class="text-amber-600">${winner.vendorName}</strong> mit einem Gesamtscore von <strong class="text-amber-600">${winner.totalWeighted.toFixed(3)}</strong> der empfohlene Anbieter.`;
@@ -712,6 +712,10 @@ function renderResultsSection(): HTMLElement {
       diffText.textContent = `Differenz zum zweitplatzierten Anbieter (${totals[1].vendorName}): ${diff.toFixed(3)} Punkte`;
       summary.appendChild(diffText);
     }
+  } else if (totals.length > 0) {
+    const noScoreText = h('p', { className: 'text-base text-gray-500' });
+    noScoreText.textContent = 'Noch keine Bewertungen vorhanden. Bitte bewerten Sie die Anbieter im Tab "Anbieter & Bewertung".';
+    summary.appendChild(noScoreText);
 
     // Shortlist
     const shortlistTitle = h('h4', { className: 'text-sm font-semibold text-gray-500 uppercase tracking-wider mt-6' }, 'Shortlist');
@@ -780,7 +784,8 @@ function generateResultsMarkdown(): string {
   lines.push('');
 
   // Recommendation
-  if (totals.length > 0) {
+  const mdMaxScore = totals[0]?.totalWeighted ?? 0;
+  if (totals.length > 0 && mdMaxScore > 0) {
     const winner = totals[0];
     lines.push('## Empfehlung');
     lines.push('');
@@ -800,7 +805,7 @@ function generateResultsMarkdown(): string {
   lines.push('| Rang | Anbieter | Gesamtscore |');
   lines.push('|------|----------|-------------|');
   totals.forEach((t, i) => {
-    const marker = i === 0 ? ' **(Empfehlung)**' : '';
+    const marker = i === 0 && mdMaxScore > 0 ? ' **(Empfehlung)**' : '';
     lines.push(`| ${i + 1} | ${t.vendorName}${marker} | ${t.totalWeighted.toFixed(3)} |`);
   });
   lines.push('');
