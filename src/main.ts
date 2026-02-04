@@ -562,6 +562,29 @@ function renderResultsSection(): HTMLElement {
   info.innerHTML = `<strong>Ergebnisse:</strong> Uebersicht der gewichteten Bewertungen, Ranking und Empfehlung.`;
   section.appendChild(info);
 
+  // Export buttons
+  const exportBar = h('div', { className: 'flex flex-wrap gap-3' });
+
+  const copyMdBtn = document.createElement('button');
+  copyMdBtn.className = 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors';
+  copyMdBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg> Markdown kopieren`;
+  copyMdBtn.addEventListener('click', handleCopyMarkdown);
+
+  const dlMdBtn = document.createElement('button');
+  dlMdBtn.className = 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors';
+  dlMdBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Markdown herunterladen`;
+  dlMdBtn.addEventListener('click', handleDownloadMarkdown);
+
+  const chartPngBtn = document.createElement('button');
+  chartPngBtn.className = 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors';
+  chartPngBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Diagramm als PNG`;
+  chartPngBtn.addEventListener('click', handleExportChartPng);
+
+  exportBar.appendChild(copyMdBtn);
+  exportBar.appendChild(dlMdBtn);
+  exportBar.appendChild(chartPngBtn);
+  section.appendChild(exportBar);
+
   // Ranking cards
   const totals = getVendorTotals().sort((a, b) => b.totalWeighted - a.totalWeighted);
   const maxScore = totals[0]?.totalWeighted ?? 0;
@@ -740,6 +763,130 @@ function handleImport(): void {
     reader.readAsText(file);
   });
   input.click();
+}
+
+// --- Confluence / Markdown Export ---
+function generateResultsMarkdown(): string {
+  const project = getProject();
+  const totals = getVendorTotals().sort((a, b) => b.totalWeighted - a.totalWeighted);
+  const { relativeWeights } = calculateWeights();
+  const results = calculateResults();
+  const sorted = getCriteriaSortedByWeight();
+
+  const lines: string[] = [];
+
+  // Title
+  lines.push(`# Nutzwertanalyse: ${project.name}`);
+  lines.push('');
+
+  // Recommendation
+  if (totals.length > 0) {
+    const winner = totals[0];
+    lines.push('## Empfehlung');
+    lines.push('');
+    lines.push(`Basierend auf der Nutzwertanalyse mit ${project.criteria.length} gewichteten Kriterien und ${project.vendors.length} bewerteten Anbietern ist **${winner.vendorName}** mit einem Gesamtscore von **${winner.totalWeighted.toFixed(3)}** der empfohlene Anbieter.`);
+    lines.push('');
+
+    if (totals.length > 1) {
+      const diff = totals[0].totalWeighted - totals[1].totalWeighted;
+      lines.push(`Differenz zum zweitplatzierten Anbieter (${totals[1].vendorName}): ${diff.toFixed(3)} Punkte`);
+      lines.push('');
+    }
+  }
+
+  // Shortlist / Ranking
+  lines.push('## Ranking');
+  lines.push('');
+  lines.push('| Rang | Anbieter | Gesamtscore |');
+  lines.push('|------|----------|-------------|');
+  totals.forEach((t, i) => {
+    const marker = i === 0 ? ' **(Empfehlung)**' : '';
+    lines.push(`| ${i + 1} | ${t.vendorName}${marker} | ${t.totalWeighted.toFixed(3)} |`);
+  });
+  lines.push('');
+
+  // Detail table
+  lines.push('## Detailvergleich');
+  lines.push('');
+
+  // Header
+  const headerCols = ['Kriterium', 'Gewicht'];
+  for (const t of totals) {
+    headerCols.push(`${t.vendorName} (Bew.)`);
+    headerCols.push(`${t.vendorName} (Gew.)`);
+  }
+  lines.push('| ' + headerCols.join(' | ') + ' |');
+  lines.push('|' + headerCols.map(() => '---').join('|') + '|');
+
+  // Rows
+  for (const c of sorted) {
+    const cols: string[] = [c.name, `${((relativeWeights[c.id] ?? 0) * 100).toFixed(1)}%`];
+    const r = results.find((r) => r.criterionId === c.id);
+    for (const t of totals) {
+      const vs = r?.vendorScores.find((s: VendorScore) => s.vendorId === t.vendorId);
+      cols.push(String(vs?.rawScore ?? 0));
+      cols.push((vs?.weightedScore ?? 0).toFixed(3));
+    }
+    lines.push('| ' + cols.join(' | ') + ' |');
+  }
+
+  // Total row
+  const totalCols: string[] = ['**Gesamtscore**', ''];
+  for (const t of totals) {
+    totalCols.push('');
+    totalCols.push(`**${t.totalWeighted.toFixed(3)}**`);
+  }
+  lines.push('| ' + totalCols.join(' | ') + ' |');
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+function handleCopyMarkdown(): void {
+  const md = generateResultsMarkdown();
+  navigator.clipboard.writeText(md).then(() => {
+    showToast('Markdown in Zwischenablage kopiert');
+  }).catch(() => {
+    // Fallback: download as file
+    downloadText(md, `${getProject().name.replace(/\s+/g, '_')}_Ergebnisse.md`, 'text/markdown');
+  });
+}
+
+function handleDownloadMarkdown(): void {
+  const md = generateResultsMarkdown();
+  downloadText(md, `${getProject().name.replace(/\s+/g, '_')}_Ergebnisse.md`, 'text/markdown');
+}
+
+function handleExportChartPng(): void {
+  const canvas = document.getElementById('radar-chart') as HTMLCanvasElement | null;
+  if (!canvas) {
+    alert('Kein Diagramm vorhanden. Bitte mindestens 3 Kriterien definieren.');
+    return;
+  }
+  const url = canvas.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${getProject().name.replace(/\s+/g, '_')}_Netzdiagramm.png`;
+  a.click();
+}
+
+function downloadText(content: string, filename: string, mime: string): void {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function showToast(message: string): void {
+  const toast = h('div', { className: 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-xl text-sm font-medium z-50 transition-opacity' }, message);
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 2000);
 }
 
 // --- Utils ---
