@@ -55,6 +55,8 @@ function h(tag: string, attrs: Record<string, string> = {}, ...children: (string
 }
 
 function render(): void {
+  const scrollY = window.scrollY;
+
   app.innerHTML = '';
   app.appendChild(renderHeader());
   app.appendChild(renderTabs());
@@ -83,6 +85,8 @@ function render(): void {
       if (beCanvas) renderBreakEvenChart(beCanvas);
     });
   }
+
+  requestAnimationFrame(() => window.scrollTo(0, scrollY));
 }
 
 // --- Header ---

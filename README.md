@@ -1,18 +1,22 @@
-# honey-bee — Utility Analysis & Vendor Comparison
+# honey-bee — Utility Analysis & TCO Calculator
 
-A professional web application for creating utility analyses (Nutzwertanalyse) and vendor comparisons in a project context. Built with TypeScript, TailwindCSS, and Chart.js — deployed as a static site via GitHub Pages.
+A professional web application for vendor evaluation combining utility analysis (Nutzwertanalyse) with Total Cost of Ownership (TCO) calculation, ROI analysis, and break-even projections. Built with TypeScript, TailwindCSS, and Chart.js — deployed as a static site via GitHub Pages.
+
+Both tools share a unified data model with persistent localStorage storage and seamless cross-navigation.
 
 ## Features
 
-### Criteria Management
+### Utility Analysis (Nutzwertanalyse)
+
+#### Criteria Management
 
 Define and manage the evaluation criteria for your analysis. The app ships with 14 preset criteria (e.g. technical competence, cost structure, UX/UI design competence) that can be added with a single click. Criteria can be freely added, renamed, and removed at any time.
 
-### Pairwise Comparison
+#### Pairwise Comparison
 
 Establish criterion weights through a structured pairwise comparison matrix. For each pair of criteria, choose whether the row criterion is more important (0), both are equally important (1), or the column criterion is more important (2). Weights are calculated automatically and displayed as both absolute values and relative percentages alongside a visual ranking.
 
-### Vendor Scoring
+#### Vendor Scoring
 
 Add vendors and score them against every criterion on a defined scale:
 
@@ -26,7 +30,7 @@ Add vendors and score them against every criterion on a defined scale:
 
 Weighted scores are computed in real time by multiplying each raw score with the criterion's relative weight. A summary row shows the total weighted score per vendor.
 
-### Results & Recommendation
+#### Results & Recommendation
 
 A dedicated results view provides:
 
@@ -35,11 +39,48 @@ A dedicated results view provides:
 - **Detailed comparison table** listing raw and weighted scores per criterion
 - **Summary text** highlighting the recommended vendor and the score differential to the runner-up
 
-### Import & Export
+### TCO Calculator
 
-- **JSON project files** — save the entire project state and reload it later
-- **Confluence export** — copy a Markdown-formatted summary to the clipboard or download it as a `.md` file
-- **Chart PNG export** — download the radar chart as a PNG image
+#### Options & Cost Management
+
+Define vendor options and assign cost items to each. The tool provides preset cost categories for quick setup:
+
+**Initial costs** — one-time expenses at project start (e.g. license fees, implementation, data migration, hardware, training, consulting, integration, customizing).
+
+**Annual costs** — recurring expenses over the projection period (e.g. annual licenses, maintenance & support, hosting, personnel, updates, ongoing training, external services).
+
+Costs are managed per option with configurable projection period (1–15 years) and discount rate (0–50%).
+
+#### Benefits Tracking
+
+Define annual benefits shared across all options (e.g. revenue increase, process cost savings, productivity gains, error rate reduction, FTE time savings, legacy system cost reduction). Benefits are used for ROI and break-even calculations.
+
+#### Results & Analysis
+
+The TCO results view includes:
+
+- **TCO overview cards** for each option showing total initial costs, annual costs, TCO, and NPV — the cheapest option is highlighted
+- **Stacked bar chart** comparing initial vs. annual costs across all options
+- **Yearly cost development table** with cumulative and discounted values for each year
+- **ROI analysis** with net benefit, ROI percentage, and break-even year for each option
+- **Break-even line chart** visualizing cumulative costs vs. cumulative benefits over time
+
+### Shared Features
+
+#### Persistent Storage
+
+All project data is stored in the browser's localStorage. Data survives page reloads, and changes in one tab are automatically synchronized to other open tabs via the `storage` event. Both tools share the same vendor list and project name.
+
+#### Unified Import & Export
+
+- **JSON project files** — export includes the full project state (both NWA and TCO data) in a single file. Import auto-detects three formats: unified (v1), legacy NWA-only, and legacy TCO-only
+- **Confluence Markdown (NWA)** — copy or download a Markdown-formatted NWA summary for Confluence
+- **Confluence Markdown (TCO)** — copy or download a Markdown-formatted TCO report including cost comparison, cost details per option, ROI & break-even table, and yearly cost development
+- **Chart PNG export** — download the radar chart (NWA) as a PNG image
+
+#### Cross-Navigation
+
+Both tools link to each other via header buttons, allowing seamless switching between utility analysis and cost analysis while sharing the same underlying project data.
 
 ## Tech Stack
 
@@ -72,12 +113,21 @@ The production build is output to `dist/` and deployed automatically to GitHub P
 
 ```
 src/
-├── main.ts        # UI rendering, event handling, all views
-├── state.ts       # State management (observable pattern)
-├── types.ts       # TypeScript interfaces and constants
+├── main.ts        # NWA UI rendering, event handling, all views
+├── state.ts       # NWA state management (observable pattern)
+├── types.ts       # NWA TypeScript interfaces and constants
 ├── chart.ts       # Chart.js radar chart configuration
+├── tco-main.ts    # TCO UI rendering, event handling, all views
+├── tco-state.ts   # TCO state management and calculations
+├── tco-types.ts   # TCO TypeScript interfaces, presets
+├── tco-chart.ts   # Chart.js bar & line chart configuration
+├── storage.ts     # Unified localStorage persistence layer
 ├── style.css      # TailwindCSS entry point
 └── vite-env.d.ts  # Vite type declarations
+
+index.html         # NWA entry point
+tco.html           # TCO entry point
+vite.config.ts     # Multi-page Vite build configuration
 ```
 
 ## Design Guidelines
@@ -109,7 +159,7 @@ src/
 
 ### Chart Colors
 
-Radar chart datasets cycle through these colors (up to 8 vendors):
+**NWA Radar chart** — datasets cycle through these colors (up to 8 vendors):
 
 | Index | Color   | Fill RGBA              | Border RGB            |
 |-------|---------|------------------------|-----------------------|
@@ -121,6 +171,25 @@ Radar chart datasets cycle through these colors (up to 8 vendors):
 | 5     | Amber   | `rgba(245, 158, 11, 0.2)`  | `rgb(245, 158, 11)`  |
 | 6     | Teal    | `rgba(20, 184, 166, 0.2)`  | `rgb(20, 184, 166)`  |
 | 7     | Red     | `rgba(239, 68, 68, 0.2)`   | `rgb(239, 68, 68)`   |
+
+**TCO Stacked bar chart** — fixed colors for cost categories:
+
+| Category         | Background RGBA            | Border RGB            |
+|------------------|----------------------------|-----------------------|
+| Initial costs    | `rgba(245, 158, 11, 0.7)` | `rgb(245, 158, 11)`  |
+| Annual costs     | `rgba(59, 130, 246, 0.7)`  | `rgb(59, 130, 246)`  |
+
+**TCO Break-even line chart** — cost lines cycle through 6 colors, benefit line uses green with dashed stroke:
+
+| Index | Color   | Border RGB            | Fill RGBA                  |
+|-------|---------|----------------------|----------------------------|
+| 0     | Blue    | `rgb(59, 130, 246)`  | `rgba(59, 130, 246, 0.15)` |
+| 1     | Orange  | `rgb(249, 115, 22)`  | `rgba(249, 115, 22, 0.15)` |
+| 2     | Green   | `rgb(16, 185, 129)`  | `rgba(16, 185, 129, 0.15)` |
+| 3     | Purple  | `rgb(139, 92, 246)`  | `rgba(139, 92, 246, 0.15)` |
+| 4     | Pink    | `rgb(236, 72, 153)`  | `rgba(236, 72, 153, 0.15)` |
+| 5     | Amber   | `rgb(245, 158, 11)`  | `rgba(245, 158, 11, 0.15)` |
+| —     | Benefit | `rgb(16, 185, 129)`  | `rgba(16, 185, 129, 0.1)` (dashed, filled) |
 
 ### Typography
 
