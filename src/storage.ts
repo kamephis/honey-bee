@@ -28,6 +28,9 @@ export interface StoredProject {
     }>;
     benefits: { id: string; name: string; annualAmount: number }[];
   };
+  risk: {
+    vendors: Record<string, { id: string; name: string; probability: number; impact: number; mitigation: string }[]>;
+  };
 }
 
 export function createDefault(): StoredProject {
@@ -37,6 +40,7 @@ export function createDefault(): StoredProject {
     vendors: [],
     nwa: { criteria: [], pairwise: {}, scores: {} },
     tco: { years: 5, discountRate: 5, costs: {}, benefits: [] },
+    risk: { vendors: {} },
   };
 }
 
@@ -45,7 +49,11 @@ export function load(): StoredProject {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return createDefault();
     const data = JSON.parse(raw);
-    if (data && data.version === 1) return data as StoredProject;
+    if (data && data.version === 1) {
+      // Migrate: add risk field if missing (pre-risk-analysis data)
+      if (!data.risk) data.risk = { vendors: {} };
+      return data as StoredProject;
+    }
     return createDefault();
   } catch {
     return createDefault();
@@ -71,6 +79,7 @@ export function importFullProject(json: string): StoredProject {
 
   // Full unified format (version 1)
   if (data && data.version === 1 && data.vendors && data.nwa && data.tco) {
+    if (!data.risk) data.risk = { vendors: {} };
     save(data as StoredProject);
     return data as StoredProject;
   }

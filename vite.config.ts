@@ -10,6 +10,8 @@ export default defineConfig({
       input: {
         main: resolve(__dirname, 'index.html'),
         tco: resolve(__dirname, 'tco.html'),
+        risk: resolve(__dirname, 'risk.html'),
+        dashboard: resolve(__dirname, 'dashboard.html'),
       },
     },
   },
