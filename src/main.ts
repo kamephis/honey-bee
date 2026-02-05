@@ -273,34 +273,63 @@ function renderPairwiseSection(): HTMLElement {
   // Matrix
   const tableWrap = h('div', { className: 'overflow-x-auto bg-white rounded-xl border border-gray-200' });
   const table = document.createElement('table');
-  table.className = 'min-w-full text-sm';
+  table.className = 'text-sm';
+  table.style.tableLayout = 'fixed';
+
+  // Calculate column widths
+  const rowLabelWidth = 180;
+  const cellWidth = 56;
+  const weightColWidth = 72;
+  const totalWidth = rowLabelWidth + criteria.length * cellWidth + weightColWidth * 2;
+  table.style.width = `${totalWidth}px`;
+
+  // Colgroup
+  const colgroup = document.createElement('colgroup');
+  const rowLabelCol = document.createElement('col');
+  rowLabelCol.style.width = `${rowLabelWidth}px`;
+  colgroup.appendChild(rowLabelCol);
+  for (let i = 0; i < criteria.length; i++) {
+    const col = document.createElement('col');
+    col.style.width = `${cellWidth}px`;
+    colgroup.appendChild(col);
+  }
+  const absCol = document.createElement('col');
+  absCol.style.width = `${weightColWidth}px`;
+  colgroup.appendChild(absCol);
+  const relCol = document.createElement('col');
+  relCol.style.width = `${weightColWidth}px`;
+  colgroup.appendChild(relCol);
+  table.appendChild(colgroup);
 
   // Header row
   const thead = document.createElement('thead');
   const headerRow = document.createElement('tr');
-  headerRow.appendChild(h('th', { className: 'sticky left-0 bg-gray-50 px-4 py-3 text-left font-medium text-gray-600 border-b border-r border-gray-200 z-10' }, ''));
+  const cornerTh = document.createElement('th');
+  cornerTh.className = 'sticky left-0 bg-gray-50 border-b border-r border-gray-200 z-10';
+  headerRow.appendChild(cornerTh);
+
   for (const c of criteria) {
     const th = document.createElement('th');
-    th.className = 'px-1 py-2 text-left font-medium text-gray-600 border-b border-gray-200 align-bottom';
-    th.style.height = '140px';
-    th.style.minWidth = '48px';
-    const wrapper = document.createElement('div');
-    wrapper.className = 'flex items-end justify-center h-full';
-    const label = document.createElement('span');
-    label.className = 'text-xs whitespace-nowrap origin-bottom-left';
-    label.style.transform = 'rotate(-55deg)';
-    label.style.display = 'block';
-    label.style.width = '0';
-    label.style.overflow = 'visible';
-    label.title = c.name;
-    label.textContent = c.name;
-    wrapper.appendChild(label);
-    th.appendChild(wrapper);
+    th.className = 'border-b border-gray-200 p-0 align-bottom overflow-hidden';
+    th.style.height = '120px';
+    th.style.position = 'relative';
+    const outer = document.createElement('div');
+    outer.style.position = 'absolute';
+    outer.style.bottom = '8px';
+    outer.style.left = '50%';
+    outer.style.transformOrigin = 'bottom left';
+    outer.style.transform = 'rotate(-50deg) translateX(-50%)';
+    outer.style.width = '110px';
+    outer.className = 'text-xs font-medium text-gray-600 leading-tight line-clamp-3';
+    outer.style.wordBreak = 'break-word';
+    outer.title = c.name;
+    outer.textContent = c.name;
+    th.appendChild(outer);
     headerRow.appendChild(th);
   }
   // Weight columns
-  headerRow.appendChild(h('th', { className: 'px-4 py-3 text-center font-semibold text-gray-700 border-b border-l border-gray-200 bg-amber-50' }, 'Absolut'));
-  headerRow.appendChild(h('th', { className: 'px-4 py-3 text-center font-semibold text-gray-700 border-b border-gray-200 bg-amber-50' }, 'Relativ %'));
+  headerRow.appendChild(h('th', { className: 'px-2 py-3 text-center text-xs font-semibold text-gray-700 border-b border-l border-gray-200 bg-amber-50' }, 'Absolut'));
+  headerRow.appendChild(h('th', { className: 'px-2 py-3 text-center text-xs font-semibold text-gray-700 border-b border-gray-200 bg-amber-50' }, 'Relativ %'));
   thead.appendChild(headerRow);
   table.appendChild(thead);
 
@@ -312,7 +341,11 @@ function renderPairwiseSection(): HTMLElement {
     const row = document.createElement('tr');
     row.className = i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
 
-    const labelCell = h('td', { className: 'sticky left-0 bg-inherit px-4 py-3 font-medium text-gray-700 border-r border-gray-200 whitespace-nowrap text-sm z-10' }, criteria[i].name);
+    const labelCell = document.createElement('td');
+    labelCell.className = 'sticky left-0 bg-inherit px-3 py-2 font-medium text-gray-700 border-r border-gray-200 text-xs z-10';
+    labelCell.style.wordBreak = 'break-word';
+    labelCell.style.lineHeight = '1.3';
+    labelCell.textContent = criteria[i].name;
     row.appendChild(labelCell);
 
     for (let j = 0; j < criteria.length; j++) {
@@ -382,7 +415,9 @@ function renderPairwiseSection(): HTMLElement {
     const pct = (relativeWeights[c.id] ?? 0) * 100;
     const bar = h('div', { className: 'flex items-center gap-4' });
     bar.appendChild(h('span', { className: 'text-sm font-mono text-gray-400 w-7 text-right' }, `${i + 1}.`));
-    bar.appendChild(h('span', { className: 'text-sm text-gray-700 w-72 truncate' }, c.name));
+    const nameSpan = h('span', { className: 'text-sm text-gray-700 min-w-48 max-w-80' }, c.name);
+    nameSpan.style.wordBreak = 'break-word';
+    bar.appendChild(nameSpan);
     const barBg = h('div', { className: 'flex-1 bg-gray-100 rounded-full h-5 overflow-hidden' });
     const barFill = h('div', { className: 'bg-amber-400 h-full rounded-full transition-all' });
     barFill.style.width = `${pct}%`;
