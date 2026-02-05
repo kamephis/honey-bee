@@ -280,8 +280,8 @@ function renderPairwiseSection(): HTMLElement {
   const headerRow = document.createElement('tr');
   headerRow.appendChild(h('th', { className: 'sticky left-0 bg-gray-50 px-4 py-3 text-left font-medium text-gray-600 border-b border-r border-gray-200 z-10' }, ''));
   for (const c of criteria) {
-    const th = h('th', { className: 'px-3 py-3 text-center font-medium text-gray-600 border-b border-gray-200 min-w-[90px]' });
-    th.innerHTML = `<div class="writing-mode-vertical text-xs max-w-[90px] truncate" title="${c.name}">${truncate(c.name, 22)}</div>`;
+    const th = h('th', { className: 'px-3 py-3 text-center font-medium text-gray-600 border-b border-gray-200 min-w-[95%]' });
+    th.innerHTML = `<div class="writing-mode-vertical text-xs max-w-[95%] truncate" title="${c.name}">${truncate(c.name, 22)}</div>`;
     headerRow.appendChild(th);
   }
   // Weight columns
