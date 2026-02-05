@@ -1,7 +1,60 @@
 import type { Project, Criterion, WeightedResult, VendorScore } from './types';
+import { load as loadStored, save as saveStored, STORAGE_KEY } from './storage';
 
-let project: Project = createEmptyProject();
+// --- Persistence helpers ---
+
+function loadFromStorage(): Project {
+  const stored = loadStored();
+  return {
+    name: stored.name,
+    criteria: stored.nwa.criteria.map((c) => ({ ...c })),
+    pairwise: { ...stored.nwa.pairwise },
+    vendors: stored.vendors.map((v) => ({
+      id: v.id,
+      name: v.name,
+      scores: { ...(stored.nwa.scores[v.id] || {}) },
+    })),
+  };
+}
+
+function persist(): void {
+  const stored = loadStored();
+  const scores: Record<string, Record<string, number>> = {};
+  for (const v of project.vendors) {
+    scores[v.id] = v.scores;
+  }
+
+  // Preserve vendors that only exist in TCO (have cost data but were not added via NWA)
+  const nwaIds = new Set(project.vendors.map((v) => v.id));
+  const tcoOnlyVendors = stored.vendors.filter((v) => !nwaIds.has(v.id) && v.id in stored.tco.costs);
+
+  saveStored({
+    ...stored,
+    name: project.name,
+    vendors: [
+      ...project.vendors.map((v) => ({ id: v.id, name: v.name })),
+      ...tcoOnlyVendors,
+    ],
+    nwa: {
+      criteria: project.criteria,
+      pairwise: project.pairwise,
+      scores,
+    },
+  });
+}
+
+// --- State ---
+
+let project: Project = loadFromStorage();
 let listeners: (() => void)[] = [];
+
+// Cross-tab sync: reload when another tab writes to storage
+window.addEventListener('storage', (e) => {
+  if (e.key === STORAGE_KEY) {
+    project = loadFromStorage();
+    listeners.forEach((fn) => fn());
+  }
+});
 
 export function createEmptyProject(): Project {
   return {
@@ -26,6 +79,7 @@ export function subscribe(fn: () => void): void {
 }
 
 function notify(): void {
+  persist();
   listeners.forEach((fn) => fn());
 }
 

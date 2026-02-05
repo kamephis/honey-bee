@@ -1,7 +1,66 @@
 import type { TcoProject, TcoOption, CostItem, BenefitItem, OptionResult, YearlyCost, RoiResult } from './tco-types';
+import { load as loadStored, save as saveStored, STORAGE_KEY } from './storage';
 
-let project: TcoProject = createEmptyProject();
+// --- Persistence helpers ---
+
+function loadFromStorage(): TcoProject {
+  const stored = loadStored();
+  return {
+    name: stored.name,
+    years: stored.tco.years,
+    discountRate: stored.tco.discountRate,
+    options: stored.vendors.map((v) => {
+      const costs = stored.tco.costs[v.id];
+      return {
+        id: v.id,
+        name: v.name,
+        initialCosts: costs?.initialCosts?.map((c) => ({ ...c })) || [],
+        annualCosts: costs?.annualCosts?.map((c) => ({ ...c })) || [],
+      };
+    }),
+    benefits: stored.tco.benefits.map((b) => ({ ...b })),
+  };
+}
+
+function persist(): void {
+  const stored = loadStored();
+  const costs: Record<string, { initialCosts: CostItem[]; annualCosts: CostItem[] }> = {};
+  for (const o of project.options) {
+    costs[o.id] = { initialCosts: o.initialCosts, annualCosts: o.annualCosts };
+  }
+
+  // Preserve vendors that only exist in NWA (have score data but were not added via TCO)
+  const tcoIds = new Set(project.options.map((o) => o.id));
+  const nwaOnlyVendors = stored.vendors.filter((v) => !tcoIds.has(v.id) && v.id in stored.nwa.scores);
+
+  saveStored({
+    ...stored,
+    name: project.name,
+    vendors: [
+      ...project.options.map((o) => ({ id: o.id, name: o.name })),
+      ...nwaOnlyVendors,
+    ],
+    tco: {
+      years: project.years,
+      discountRate: project.discountRate,
+      costs,
+      benefits: project.benefits,
+    },
+  });
+}
+
+// --- State ---
+
+let project: TcoProject = loadFromStorage();
 let listeners: (() => void)[] = [];
+
+// Cross-tab sync: reload when another tab writes to storage
+window.addEventListener('storage', (e) => {
+  if (e.key === STORAGE_KEY) {
+    project = loadFromStorage();
+    listeners.forEach((fn) => fn());
+  }
+});
 
 export function createEmptyProject(): TcoProject {
   return {
@@ -27,6 +86,7 @@ export function subscribe(fn: () => void): void {
 }
 
 function notify(): void {
+  persist();
   listeners.forEach((fn) => fn());
 }
 
