@@ -60,4 +60,67 @@ export function save(project: StoredProject): void {
   }
 }
 
+// --- Unified project export/import ---
+
+export function exportFullProject(): string {
+  return JSON.stringify(load(), null, 2);
+}
+
+export function importFullProject(json: string): StoredProject {
+  const data = JSON.parse(json);
+
+  // Full unified format (version 1)
+  if (data && data.version === 1 && data.vendors && data.nwa && data.tco) {
+    save(data as StoredProject);
+    return data as StoredProject;
+  }
+
+  // Legacy NWA-only format: { name, criteria, pairwise, vendors: [{id, name, scores}] }
+  if (data && data.criteria && data.vendors && !data.version) {
+    const stored = load();
+    const scores: Record<string, Record<string, number>> = {};
+    const vendors = (data.vendors as { id: string; name: string; scores: Record<string, number> }[]);
+    for (const v of vendors) {
+      scores[v.id] = v.scores || {};
+    }
+    const merged: StoredProject = {
+      ...stored,
+      name: data.name || stored.name,
+      vendors: vendors.map((v) => ({ id: v.id, name: v.name })),
+      nwa: {
+        criteria: data.criteria,
+        pairwise: data.pairwise || {},
+        scores,
+      },
+    };
+    save(merged);
+    return merged;
+  }
+
+  // Legacy TCO-only format: { name, years, discountRate, options, benefits }
+  if (data && data.options && data.benefits && !data.version) {
+    const stored = load();
+    const costs: Record<string, { initialCosts: { id: string; name: string; amount: number }[]; annualCosts: { id: string; name: string; amount: number }[] }> = {};
+    const options = (data.options as { id: string; name: string; initialCosts: { id: string; name: string; amount: number }[]; annualCosts: { id: string; name: string; amount: number }[] }[]);
+    for (const o of options) {
+      costs[o.id] = { initialCosts: o.initialCosts, annualCosts: o.annualCosts };
+    }
+    const merged: StoredProject = {
+      ...stored,
+      name: data.name || stored.name,
+      vendors: options.map((o) => ({ id: o.id, name: o.name })),
+      tco: {
+        years: data.years ?? 5,
+        discountRate: data.discountRate ?? 5,
+        costs,
+        benefits: data.benefits,
+      },
+    };
+    save(merged);
+    return merged;
+  }
+
+  throw new Error('Unbekanntes Projektformat');
+}
+
 export { STORAGE_KEY };
