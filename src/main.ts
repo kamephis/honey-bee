@@ -15,13 +15,12 @@ import {
   calculateWeights,
   calculateResults,
   getVendorTotals,
-  exportProject,
-  importProject,
   setProjectName,
   getCriteriaSortedByWeight,
 } from './state';
 import { renderRadarChart } from './chart';
 import { SCORE_LABELS } from './types';
+import { exportFullProject, importFullProject } from './storage';
 
 const app = document.getElementById('app')!;
 
@@ -746,7 +745,7 @@ function renderResultsSection(): HTMLElement {
 
 // --- Import / Export ---
 function handleExport(): void {
-  const json = exportProject();
+  const json = exportFullProject();
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -766,7 +765,9 @@ function handleImport(): void {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        importProject(reader.result as string);
+        importFullProject(reader.result as string);
+        // Reload NWA state from updated storage
+        location.reload();
       } catch (e) {
         alert(`Import fehlgeschlagen: ${e instanceof Error ? e.message : 'Unbekannter Fehler'}`);
       }

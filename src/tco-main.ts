@@ -25,10 +25,9 @@ import {
   calculateAllResults,
   calculateTotalAnnualBenefit,
   calculateRoi,
-  exportProject,
-  importProject,
 } from './tco-state';
 import { renderTcoComparisonChart, renderBreakEvenChart } from './tco-chart';
+import { exportFullProject, importFullProject } from './storage';
 
 const app = document.getElementById('app')!;
 
@@ -513,6 +512,23 @@ function renderResultsSection(): HTMLElement {
   info.innerHTML = `<strong>Ergebnisse:</strong> TCO-Vergleich, ROI und Break-Even-Analyse ueber ${project.years} Jahre mit ${project.discountRate}% Diskontrate.`;
   section.appendChild(info);
 
+  // Export buttons
+  const exportBar = h('div', { className: 'flex flex-wrap gap-3' });
+
+  const copyMdBtn = document.createElement('button');
+  copyMdBtn.className = 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors';
+  copyMdBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg> Markdown kopieren`;
+  copyMdBtn.addEventListener('click', handleCopyMarkdown);
+
+  const dlMdBtn = document.createElement('button');
+  dlMdBtn.className = 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors';
+  dlMdBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg> Markdown herunterladen`;
+  dlMdBtn.addEventListener('click', handleDownloadMarkdown);
+
+  exportBar.appendChild(copyMdBtn);
+  exportBar.appendChild(dlMdBtn);
+  section.appendChild(exportBar);
+
   const results = calculateAllResults();
   const roiResults = calculateRoi();
   const annualBenefit = calculateTotalAnnualBenefit();
@@ -665,7 +681,7 @@ function renderYearlyTable(results: ReturnType<typeof calculateAllResults>): HTM
 
 // --- Import / Export ---
 function handleExport(): void {
-  const json = exportProject();
+  const json = exportFullProject();
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -685,7 +701,8 @@ function handleImport(): void {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        importProject(reader.result as string);
+        importFullProject(reader.result as string);
+        location.reload();
       } catch (e) {
         alert(`Import fehlgeschlagen: ${e instanceof Error ? e.message : 'Unbekannter Fehler'}`);
       }
@@ -693,6 +710,136 @@ function handleImport(): void {
     reader.readAsText(file);
   });
   input.click();
+}
+
+// --- Markdown Export ---
+function generateTcoMarkdown(): string {
+  const project = getProject();
+  const results = calculateAllResults();
+  const roiResults = calculateRoi();
+  const annualBenefit = calculateTotalAnnualBenefit();
+  const sortedResults = [...results].sort((a, b) => a.tco - b.tco);
+
+  const lines: string[] = [];
+
+  lines.push(`# TCO-Analyse: ${project.name}`);
+  lines.push('');
+  lines.push(`Betrachtungszeitraum: ${project.years} Jahre | Diskontrate: ${project.discountRate}%`);
+  lines.push('');
+
+  // TCO Ranking
+  lines.push('## TCO-Vergleich');
+  lines.push('');
+  lines.push('| Rang | Option | Einmalig | Jaehrlich | TCO (gesamt) | NPV |');
+  lines.push('|------|--------|----------|-----------|-------------|-----|');
+  sortedResults.forEach((r, i) => {
+    const marker = i === 0 && results.length > 1 ? ' **(Guenstigste)**' : '';
+    lines.push(`| ${i + 1} | ${r.optionName}${marker} | ${fmtCHF(r.totalInitial)} | ${fmtCHF(r.totalAnnual)} | ${fmtCHF(r.tco)} | ${fmtCHF(r.npv)} |`);
+  });
+  lines.push('');
+
+  // Cost breakdown per option
+  lines.push('## Kostendetails');
+  lines.push('');
+  for (const option of project.options) {
+    lines.push(`### ${option.name}`);
+    lines.push('');
+    if (option.initialCosts.length > 0) {
+      lines.push('**Einmalige Kosten:**');
+      lines.push('');
+      lines.push('| Position | Betrag |');
+      lines.push('|----------|--------|');
+      for (const c of option.initialCosts) {
+        lines.push(`| ${c.name} | ${fmtCHF(c.amount)} |`);
+      }
+      const totalInit = option.initialCosts.reduce((s, c) => s + c.amount, 0);
+      lines.push(`| **Summe** | **${fmtCHF(totalInit)}** |`);
+      lines.push('');
+    }
+    if (option.annualCosts.length > 0) {
+      lines.push('**Jaehrliche Kosten:**');
+      lines.push('');
+      lines.push('| Position | Betrag |');
+      lines.push('|----------|--------|');
+      for (const c of option.annualCosts) {
+        lines.push(`| ${c.name} | ${fmtCHF(c.amount)} |`);
+      }
+      const totalAnn = option.annualCosts.reduce((s, c) => s + c.amount, 0);
+      lines.push(`| **Summe** | **${fmtCHF(totalAnn)}** |`);
+      lines.push('');
+    }
+  }
+
+  // ROI & Break-Even
+  if (annualBenefit > 0) {
+    lines.push('## ROI & Break-Even');
+    lines.push('');
+    lines.push(`Jaehrlicher Nutzen: ${fmtCHF(annualBenefit)} | Gesamtnutzen (${project.years} Jahre): ${fmtCHF(annualBenefit * project.years)}`);
+    lines.push('');
+    lines.push('| Option | TCO | Nettonutzen | ROI | Break-Even |');
+    lines.push('|--------|-----|-------------|-----|------------|');
+    for (const roi of roiResults) {
+      const be = roi.breakEvenYear !== null ? `Jahr ${roi.breakEvenYear}` : `> ${project.years} Jahre`;
+      lines.push(`| ${roi.optionName} | ${fmtCHF(roi.tco)} | ${fmtCHF(roi.netBenefit)} | ${roi.roiPercent.toFixed(1)}% | ${be} |`);
+    }
+    lines.push('');
+  }
+
+  // Yearly table
+  lines.push('## Jaehrliche Kostenentwicklung');
+  lines.push('');
+  const yearHeaders = ['Jahr'];
+  for (const r of results) {
+    yearHeaders.push(`${r.optionName} (Jahr)`);
+    yearHeaders.push(`${r.optionName} (Kum.)`);
+  }
+  lines.push('| ' + yearHeaders.join(' | ') + ' |');
+  lines.push('|' + yearHeaders.map(() => '---').join('|') + '|');
+  for (let y = 0; y <= project.years; y++) {
+    const cols: string[] = [`Jahr ${y}`];
+    for (const r of results) {
+      const yc = r.yearlyCosts[y];
+      cols.push(fmtCHF(yc.total));
+      cols.push(fmtCHF(yc.cumulative));
+    }
+    lines.push('| ' + cols.join(' | ') + ' |');
+  }
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+function handleCopyMarkdown(): void {
+  const md = generateTcoMarkdown();
+  navigator.clipboard.writeText(md).then(() => {
+    showToast('Markdown in Zwischenablage kopiert');
+  }).catch(() => {
+    downloadText(md, `${getProject().name.replace(/\s+/g, '_')}_TCO.md`, 'text/markdown');
+  });
+}
+
+function handleDownloadMarkdown(): void {
+  const md = generateTcoMarkdown();
+  downloadText(md, `${getProject().name.replace(/\s+/g, '_')}_TCO.md`, 'text/markdown');
+}
+
+function downloadText(content: string, filename: string, mime: string): void {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function showToast(message: string): void {
+  const toast = h('div', { className: 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-xl text-sm font-medium z-50 transition-opacity' }, message);
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 2000);
 }
 
 // --- Utils ---
