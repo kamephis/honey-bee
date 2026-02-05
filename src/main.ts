@@ -51,6 +51,10 @@ function h(tag: string, attrs: Record<string, string> = {}, ...children: (string
 
 function render(): void {
   const scrollY = window.scrollY;
+  const scrollX = window.scrollX;
+  // Capture horizontal scroll of overflow containers before DOM teardown
+  const pairwiseWrap = document.getElementById('pairwise-table-wrap');
+  const pairwiseScrollLeft = pairwiseWrap?.scrollLeft ?? 0;
 
   app.innerHTML = '';
   app.appendChild(renderHeader());
@@ -80,7 +84,12 @@ function render(): void {
     }
   }
 
-  requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  // Restore scroll positions after DOM rebuild
+  requestAnimationFrame(() => {
+    window.scrollTo(scrollX, scrollY);
+    const newPairwiseWrap = document.getElementById('pairwise-table-wrap');
+    if (newPairwiseWrap) newPairwiseWrap.scrollLeft = pairwiseScrollLeft;
+  });
 }
 
 // --- Header ---
@@ -281,7 +290,7 @@ function renderPairwiseSection(): HTMLElement {
   section.appendChild(info);
 
   // Matrix
-  const tableWrap = h('div', { className: 'overflow-x-auto bg-white rounded-xl border border-gray-200' });
+  const tableWrap = h('div', { className: 'overflow-x-auto bg-white rounded-xl border border-gray-200', id: 'pairwise-table-wrap' });
   const table = document.createElement('table');
   table.className = 'min-w-full text-sm';
 
