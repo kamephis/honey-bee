@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+.pairwise-col-header {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform-origin: bottom left;
+  transform: rotate(-55deg);
+  white-space: nowrap;
+  max-width: 180px;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
