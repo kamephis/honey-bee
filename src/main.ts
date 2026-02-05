@@ -280,8 +280,22 @@ function renderPairwiseSection(): HTMLElement {
   const headerRow = document.createElement('tr');
   headerRow.appendChild(h('th', { className: 'sticky left-0 bg-gray-50 px-4 py-3 text-left font-medium text-gray-600 border-b border-r border-gray-200 z-10' }, ''));
   for (const c of criteria) {
-    const th = h('th', { className: 'px-3 py-3 text-center font-medium text-gray-600 border-b border-gray-200 min-w-[90px]' });
-    th.innerHTML = `<div class="writing-mode-vertical text-xs max-w-[90px] truncate" title="${c.name}">${truncate(c.name, 22)}</div>`;
+    const th = document.createElement('th');
+    th.className = 'px-1 py-2 text-left font-medium text-gray-600 border-b border-gray-200 align-bottom';
+    th.style.height = '140px';
+    th.style.minWidth = '48px';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'flex items-end justify-center h-full';
+    const label = document.createElement('span');
+    label.className = 'text-xs whitespace-nowrap origin-bottom-left';
+    label.style.transform = 'rotate(-55deg)';
+    label.style.display = 'block';
+    label.style.width = '0';
+    label.style.overflow = 'visible';
+    label.title = c.name;
+    label.textContent = c.name;
+    wrapper.appendChild(label);
+    th.appendChild(wrapper);
     headerRow.appendChild(th);
   }
   // Weight columns
@@ -892,11 +906,6 @@ function showToast(message: string): void {
     toast.style.opacity = '0';
     setTimeout(() => toast.remove(), 300);
   }, 2000);
-}
-
-// --- Utils ---
-function truncate(str: string, len: number): string {
-  return str.length > len ? str.slice(0, len) + '...' : str;
 }
 
 // --- Init ---
