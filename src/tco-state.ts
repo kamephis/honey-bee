@@ -29,9 +29,9 @@ function persist(): void {
     costs[o.id] = { initialCosts: o.initialCosts, annualCosts: o.annualCosts };
   }
 
-  // Preserve vendors that only exist in NWA (have score data but were not added via TCO)
+  // Preserve vendors that only exist in other tools (NWA or Risk)
   const tcoIds = new Set(project.options.map((o) => o.id));
-  const nwaOnlyVendors = stored.vendors.filter((v) => !tcoIds.has(v.id) && v.id in stored.nwa.scores);
+  const nwaOnlyVendors = stored.vendors.filter((v) => !tcoIds.has(v.id) && (v.id in stored.nwa.scores || v.id in stored.risk.vendors));
 
   saveStored({
     ...stored,

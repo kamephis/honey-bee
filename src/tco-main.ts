@@ -106,15 +106,24 @@ function renderHeader(): HTMLElement {
   nameInput.addEventListener('change', () => setProjectName(nameInput.value));
   left.appendChild(nameInput);
 
-  // Right: tools link + import/export
-  const right = h('div', { className: 'flex items-center gap-3' });
+  // Right: Navigation + Import/Export
+  const right = h('div', { className: 'flex items-center gap-2 flex-wrap' });
+  const basePath = import.meta.env.BASE_URL ?? '/honey-bee/';
 
   const nwaLink = document.createElement('a');
-  const basePath = import.meta.env.BASE_URL ?? '/honey-bee/';
   nwaLink.href = `${basePath}`;
   nwaLink.className = 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors';
-  nwaLink.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg> Nutzwertanalyse`;
-  right.appendChild(nwaLink);
+  nwaLink.textContent = 'Nutzwertanalyse';
+
+  const riskLink = document.createElement('a');
+  riskLink.href = `${basePath}risk.html`;
+  riskLink.className = 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors';
+  riskLink.textContent = 'Risikoanalyse';
+
+  const dashLink = document.createElement('a');
+  dashLink.href = `${basePath}dashboard.html`;
+  dashLink.className = 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors';
+  dashLink.textContent = 'Dashboard';
 
   const exportBtn = document.createElement('button');
   exportBtn.className = 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors';
@@ -126,6 +135,9 @@ function renderHeader(): HTMLElement {
   importBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg> Import`;
   importBtn.addEventListener('click', handleImport);
 
+  right.appendChild(nwaLink);
+  right.appendChild(riskLink);
+  right.appendChild(dashLink);
   right.appendChild(importBtn);
   right.appendChild(exportBtn);
 
