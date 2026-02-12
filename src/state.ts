@@ -158,9 +158,9 @@ export function calculateWeights(): { absoluteWeights: Record<string, number>; r
       const key1 = `${c.id}:${other.id}`;
       const key2 = `${other.id}:${c.id}`;
       if (key1 in project.pairwise) {
-        sum += project.pairwise[key1];
+        sum += 2 - project.pairwise[key1];
       } else if (key2 in project.pairwise) {
-        sum += 2 - project.pairwise[key2];
+        sum += project.pairwise[key2];
       } else {
         sum += 1; // default: equal
       }
