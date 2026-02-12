@@ -74,8 +74,8 @@ function calculateComposite(stored: StoredProject): VendorComposite[] {
         if (c.id === other.id) continue;
         const key1 = `${c.id}:${other.id}`;
         const key2 = `${other.id}:${c.id}`;
-        if (key1 in stored.nwa.pairwise) sum += stored.nwa.pairwise[key1];
-        else if (key2 in stored.nwa.pairwise) sum += 2 - stored.nwa.pairwise[key2];
+        if (key1 in stored.nwa.pairwise) sum += 2 - stored.nwa.pairwise[key1];
+        else if (key2 in stored.nwa.pairwise) sum += stored.nwa.pairwise[key2];
         else sum += 1;
       }
       absoluteWeights[c.id] = sum;
