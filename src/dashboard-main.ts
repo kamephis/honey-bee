@@ -1,6 +1,7 @@
 import './style.css';
 import { load as loadStored, STORAGE_KEY, exportFullProject, importFullProject } from './storage';
 import type { StoredProject } from './storage';
+import { exportToPptx } from './pptx-export';
 
 const app = document.getElementById('app')!;
 
@@ -217,11 +218,17 @@ function renderHeader(): HTMLElement {
   importBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg> Import`;
   importBtn.addEventListener('click', handleImport);
 
+  const pptxBtn = document.createElement('button');
+  pptxBtn.className = 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-500 border border-amber-500 rounded-lg hover:bg-amber-600 transition-colors';
+  pptxBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6"/></svg> PowerPoint`;
+  pptxBtn.addEventListener('click', handlePptxExport);
+
   right.appendChild(nwaLink);
   right.appendChild(tcoLink);
   right.appendChild(riskLink);
   right.appendChild(importBtn);
   right.appendChild(exportBtn);
+  right.appendChild(pptxBtn);
 
   inner.appendChild(left);
   inner.appendChild(right);
@@ -421,8 +428,14 @@ function renderDetailSection(): HTMLElement {
   dlMdBtn.textContent = 'Markdown herunterladen';
   dlMdBtn.addEventListener('click', handleDownloadMarkdown);
 
+  const dlPptxBtn = document.createElement('button');
+  dlPptxBtn.className = 'inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-500 border border-amber-500 rounded-lg hover:bg-amber-600 transition-colors';
+  dlPptxBtn.textContent = 'PowerPoint herunterladen';
+  dlPptxBtn.addEventListener('click', handlePptxExport);
+
   mdRow.appendChild(copyMdBtn);
   mdRow.appendChild(dlMdBtn);
+  mdRow.appendChild(dlPptxBtn);
   section.appendChild(mdRow);
 
   return section;
@@ -463,6 +476,16 @@ function handleDownloadMarkdown(): void {
   const md = generateDashboardMarkdown();
   const stored = loadStored();
   downloadText(`dashboard-${stored.name.toLowerCase().replace(/\s+/g, '-')}.md`, md);
+}
+
+// --- PowerPoint Export ---
+function handlePptxExport(): void {
+  exportToPptx({ weightNwa, weightTco, weightRisk })
+    .then(() => showToast('PowerPoint erfolgreich erstellt!'))
+    .catch((err) => {
+      console.error('PPTX export error:', err);
+      showToast('Fehler beim Erstellen der PowerPoint-Datei');
+    });
 }
 
 // --- Import/Export ---
