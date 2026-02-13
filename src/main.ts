@@ -5,6 +5,7 @@ import {
   subscribe,
   addCriterion,
   updateCriterion,
+  updateCriterionDescription,
   removeCriterion,
   setPairwise,
   getPairwise,
@@ -12,6 +13,7 @@ import {
   updateVendorName,
   removeVendor,
   setVendorScore,
+  setVendorNote,
   calculateWeights,
   calculateResults,
   getVendorTotals,
@@ -47,6 +49,55 @@ function h(tag: string, attrs: Record<string, string> = {}, ...children: (string
     else el.appendChild(child);
   }
   return el;
+}
+
+function showNoteInput(vendorId: string, criterionId: string, existingNote: string, anchorEl: HTMLElement): void {
+  // Remove any existing note popup
+  document.querySelectorAll('.note-popup').forEach((el) => el.remove());
+
+  const popup = document.createElement('div');
+  popup.id = `note-${vendorId}-${criterionId}`;
+  popup.className = 'note-popup absolute z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-3 w-56';
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'w-full text-sm border border-gray-200 rounded-md p-2 focus:ring-1 focus:ring-amber-500 focus:border-amber-500 focus:outline-none resize-none';
+  textarea.rows = 3;
+  textarea.placeholder = 'Anmerkung...';
+  textarea.value = existingNote;
+
+  const btnRow = h('div', { className: 'flex justify-end gap-2 mt-2' });
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'px-3 py-1 text-xs font-medium text-white bg-amber-500 rounded hover:bg-amber-600 transition-colors';
+  saveBtn.textContent = 'Speichern';
+  saveBtn.addEventListener('click', () => {
+    setVendorNote(vendorId, criterionId, textarea.value);
+    popup.remove();
+  });
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'px-3 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded hover:bg-gray-200 transition-colors';
+  cancelBtn.textContent = 'Abbrechen';
+  cancelBtn.addEventListener('click', () => popup.remove());
+
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(saveBtn);
+  popup.appendChild(textarea);
+  popup.appendChild(btnRow);
+
+  // Position relative to anchor
+  const cell = anchorEl.closest('td');
+  if (cell) {
+    cell.style.position = 'relative';
+    popup.style.top = '100%';
+    popup.style.left = '50%';
+    popup.style.transform = 'translateX(-50%)';
+    cell.appendChild(popup);
+  } else {
+    document.body.appendChild(popup);
+  }
+
+  textarea.focus();
 }
 
 function render(): void {
@@ -223,24 +274,36 @@ function renderCriteriaSection(): HTMLElement {
   } else {
     const list = h('div', { className: 'bg-white rounded-xl border border-gray-200 divide-y divide-gray-200' });
     project.criteria.forEach((c, i) => {
-      const row = h('div', { className: 'flex items-center gap-4 px-5 py-4' });
-      const num = h('span', { className: 'text-sm font-mono text-gray-400 w-8 text-right' }, `${i + 1}.`);
+      const row = h('div', { className: 'flex items-start gap-4 px-5 py-4' });
+      const num = h('span', { className: 'text-sm font-mono text-gray-400 w-8 text-right mt-2' }, `${i + 1}.`);
+
+      const textBlock = h('div', { className: 'flex-1 space-y-1' });
 
       const nameInput = document.createElement('input');
       nameInput.type = 'text';
       nameInput.value = c.name;
-      nameInput.className = 'flex-1 px-3 py-2 border border-transparent rounded-lg hover:border-gray-300 focus:border-amber-500 focus:outline-none text-base transition-colors';
+      nameInput.className = 'w-full px-3 py-2 border border-transparent rounded-lg hover:border-gray-300 focus:border-amber-500 focus:outline-none text-base transition-colors';
       nameInput.addEventListener('change', () => updateCriterion(c.id, nameInput.value));
 
+      const descInput = document.createElement('input');
+      descInput.type = 'text';
+      descInput.value = c.description;
+      descInput.placeholder = 'Beschreibung hinzufuegen...';
+      descInput.className = 'w-full px-3 py-1.5 text-sm text-gray-500 border border-transparent rounded-lg hover:border-gray-200 focus:border-amber-400 focus:outline-none transition-colors placeholder:text-gray-300';
+      descInput.addEventListener('change', () => updateCriterionDescription(c.id, descInput.value));
+
+      textBlock.appendChild(nameInput);
+      textBlock.appendChild(descInput);
+
       const delBtn = document.createElement('button');
-      delBtn.className = 'p-2 text-gray-400 hover:text-red-500 transition-colors';
+      delBtn.className = 'p-2 text-gray-400 hover:text-red-500 transition-colors mt-1';
       delBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`;
       delBtn.addEventListener('click', () => {
         if (confirm(`Kriterium "${c.name}" wirklich loeschen?`)) removeCriterion(c.id);
       });
 
       row.appendChild(num);
-      row.appendChild(nameInput);
+      row.appendChild(textBlock);
       row.appendChild(delBtn);
       list.appendChild(row);
     });
@@ -329,7 +392,12 @@ function renderPairwiseSection(): HTMLElement {
     const row = document.createElement('tr');
     row.className = i % 2 === 0 ? 'bg-white' : 'bg-gray-50/50';
 
-    const labelCell = h('td', { className: 'sticky left-0 bg-inherit px-4 py-3 font-medium text-gray-700 border-r border-gray-200 whitespace-nowrap text-sm z-10' }, criteria[i].name);
+    const labelCell = document.createElement('td');
+    labelCell.className = 'sticky left-0 bg-inherit px-4 py-3 font-medium text-gray-700 border-r border-gray-200 whitespace-nowrap text-sm z-10';
+    labelCell.textContent = criteria[i].name;
+    if (criteria[i].description) {
+      labelCell.title = criteria[i].description;
+    }
     row.appendChild(labelCell);
 
     for (let j = 0; j < criteria.length; j++) {
@@ -518,7 +586,15 @@ function renderVendorsSection(): HTMLElement {
     const row = document.createElement('tr');
     row.className = 'hover:bg-gray-50/50';
 
-    const labelCell = h('td', { className: 'sticky left-0 bg-white px-5 py-3 font-medium text-gray-700 border-r border-gray-200 whitespace-nowrap text-sm z-10' }, c.name);
+    // Label cell with optional description tooltip
+    const labelCell = document.createElement('td');
+    labelCell.className = 'sticky left-0 bg-white px-5 py-3 font-medium text-gray-700 border-r border-gray-200 text-sm z-10';
+    const labelName = h('div', { className: 'whitespace-nowrap' }, c.name);
+    labelCell.appendChild(labelName);
+    if (c.description) {
+      const labelDesc = h('div', { className: 'text-xs font-normal text-gray-400 mt-0.5 whitespace-nowrap max-w-[220px] truncate', title: c.description }, c.description);
+      labelCell.appendChild(labelDesc);
+    }
     row.appendChild(labelCell);
 
     const weightCell = h('td', { className: 'px-4 py-3 text-center text-sm text-gray-500 border-r border-gray-200' }, `${((relativeWeights[c.id] ?? 0) * 100).toFixed(1)}%`);
@@ -530,6 +606,9 @@ function renderVendorsSection(): HTMLElement {
       // Score select
       const scoreCell = document.createElement('td');
       scoreCell.className = 'px-2 py-2 text-center';
+
+      const cellWrap = h('div', { className: 'flex flex-col items-center gap-1' });
+
       const select = document.createElement('select');
       select.className = 'w-full text-center text-sm py-2 px-1 border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-amber-500 focus:outline-none cursor-pointer';
       const currentScore = v.scores[c.id] ?? 0;
@@ -543,7 +622,28 @@ function renderVendorsSection(): HTMLElement {
       const vid = v.id;
       const cid = c.id;
       select.addEventListener('change', () => setVendorScore(vid, cid, Number(select.value)));
-      scoreCell.appendChild(select);
+      cellWrap.appendChild(select);
+
+      // Note toggle button
+      const existingNote = v.notes[c.id] || '';
+      const noteBtn = document.createElement('button');
+      noteBtn.className = `text-xs px-1.5 py-0.5 rounded transition-colors ${existingNote ? 'text-amber-600 hover:text-amber-700' : 'text-gray-300 hover:text-gray-500'}`;
+      noteBtn.innerHTML = existingNote
+        ? `<span class="inline-flex items-center gap-0.5" title="${existingNote.replace(/"/g, '&quot;')}"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2z" clip-rule="evenodd"/></svg></span>`
+        : `<span class="inline-flex items-center gap-0.5"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg></span>`;
+
+      noteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const noteRow = document.getElementById(`note-${vid}-${cid}`);
+        if (noteRow) {
+          noteRow.remove();
+        } else {
+          showNoteInput(vid, cid, existingNote, noteBtn);
+        }
+      });
+      cellWrap.appendChild(noteBtn);
+
+      scoreCell.appendChild(cellWrap);
       row.appendChild(scoreCell);
 
       // Weighted score
@@ -691,7 +791,17 @@ function renderResultsSection(): HTMLElement {
   for (const c of sorted) {
     const row = document.createElement('tr');
     row.className = 'hover:bg-gray-50/50';
-    row.appendChild(h('td', { className: 'sticky left-0 bg-white px-5 py-3 text-sm font-medium text-gray-700 border-r border-gray-200 whitespace-nowrap z-10' }, c.name));
+
+    // Criterion label with description
+    const labelCell = document.createElement('td');
+    labelCell.className = 'sticky left-0 bg-white px-5 py-3 text-sm font-medium text-gray-700 border-r border-gray-200 z-10';
+    const labelName = h('div', { className: 'whitespace-nowrap' }, c.name);
+    labelCell.appendChild(labelName);
+    if (c.description) {
+      const labelDesc = h('div', { className: 'text-xs font-normal text-gray-400 mt-0.5 whitespace-nowrap max-w-[220px] truncate', title: c.description }, c.description);
+      labelCell.appendChild(labelDesc);
+    }
+    row.appendChild(labelCell);
     row.appendChild(h('td', { className: 'px-4 py-3 text-center text-sm text-gray-500' }, `${((relativeWeights[c.id] ?? 0) * 100).toFixed(1)}%`));
 
     const r = results.find((r) => r.criterionId === c.id);
@@ -705,8 +815,27 @@ function renderResultsSection(): HTMLElement {
     for (const t of totals) {
       const vs = r?.vendorScores.find((s: VendorScore) => s.vendorId === t.vendorId);
       const isBest = (vs?.weightedScore ?? 0) === maxWeighted && maxWeighted > 0;
-      row.appendChild(h('td', { className: `px-4 py-3 text-center text-sm ${isBest ? 'font-semibold text-amber-700' : 'text-gray-600'}` }, String(vs?.rawScore ?? 0)));
-      row.appendChild(h('td', { className: `px-4 py-3 text-center text-sm font-mono ${isBest ? 'font-semibold text-amber-700 bg-amber-50/50' : 'text-gray-500'}` }, (vs?.weightedScore ?? 0).toFixed(3)));
+
+      // Check for note
+      const vendor = project.vendors.find((v) => v.id === t.vendorId);
+      const note = vendor?.notes[c.id] || '';
+
+      const rawCell = document.createElement('td');
+      rawCell.className = `px-4 py-3 text-center text-sm ${isBest ? 'font-semibold text-amber-700' : 'text-gray-600'}`;
+      rawCell.textContent = String(vs?.rawScore ?? 0);
+      row.appendChild(rawCell);
+
+      const weightedCell = document.createElement('td');
+      weightedCell.className = `px-4 py-3 text-center text-sm font-mono ${isBest ? 'font-semibold text-amber-700 bg-amber-50/50' : 'text-gray-500'}`;
+      if (note) {
+        const scoreSpan = h('div', {}, (vs?.weightedScore ?? 0).toFixed(3));
+        const noteIndicator = h('div', { className: 'text-xs font-sans font-normal text-gray-400 mt-0.5 max-w-[120px] truncate', title: note }, note);
+        weightedCell.appendChild(scoreSpan);
+        weightedCell.appendChild(noteIndicator);
+      } else {
+        weightedCell.textContent = (vs?.weightedScore ?? 0).toFixed(3);
+      }
+      row.appendChild(weightedCell);
     }
     tbody.appendChild(row);
   }
@@ -858,12 +987,15 @@ function generateResultsMarkdown(): string {
 
   // Rows
   for (const c of sorted) {
-    const cols: string[] = [c.name, `${((relativeWeights[c.id] ?? 0) * 100).toFixed(1)}%`];
+    const criterionLabel = c.description ? `${c.name} _(${c.description})_` : c.name;
+    const cols: string[] = [criterionLabel, `${((relativeWeights[c.id] ?? 0) * 100).toFixed(1)}%`];
     const r = results.find((r) => r.criterionId === c.id);
     for (const t of totals) {
       const vs = r?.vendorScores.find((s: VendorScore) => s.vendorId === t.vendorId);
+      const vendor = project.vendors.find((v) => v.id === t.vendorId);
+      const note = vendor?.notes[c.id] || '';
       cols.push(String(vs?.rawScore ?? 0));
-      cols.push((vs?.weightedScore ?? 0).toFixed(3));
+      cols.push(note ? `${(vs?.weightedScore ?? 0).toFixed(3)} *${note}*` : (vs?.weightedScore ?? 0).toFixed(3));
     }
     lines.push('| ' + cols.join(' | ') + ' |');
   }

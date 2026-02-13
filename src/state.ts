@@ -5,14 +5,16 @@ import { load as loadStored, save as saveStored, STORAGE_KEY } from './storage';
 
 function loadFromStorage(): Project {
   const stored = loadStored();
+  const storedNotes = stored.nwa.notes || {};
   return {
     name: stored.name,
-    criteria: stored.nwa.criteria.map((c) => ({ ...c })),
+    criteria: stored.nwa.criteria.map((c) => ({ id: c.id, name: c.name, description: c.description ?? '' })),
     pairwise: { ...stored.nwa.pairwise },
     vendors: stored.vendors.map((v) => ({
       id: v.id,
       name: v.name,
       scores: { ...(stored.nwa.scores[v.id] || {}) },
+      notes: { ...(storedNotes[v.id] || {}) },
     })),
   };
 }
@@ -20,8 +22,15 @@ function loadFromStorage(): Project {
 function persist(): void {
   const stored = loadStored();
   const scores: Record<string, Record<string, number>> = {};
+  const notes: Record<string, Record<string, string>> = {};
   for (const v of project.vendors) {
     scores[v.id] = v.scores;
+    // Only persist non-empty notes
+    const vendorNotes: Record<string, string> = {};
+    for (const [key, val] of Object.entries(v.notes)) {
+      if (val.trim()) vendorNotes[key] = val;
+    }
+    if (Object.keys(vendorNotes).length > 0) notes[v.id] = vendorNotes;
   }
 
   // Preserve vendors that only exist in other tools (TCO or Risk)
@@ -36,9 +45,10 @@ function persist(): void {
       ...tcoOnlyVendors,
     ],
     nwa: {
-      criteria: project.criteria,
+      criteria: project.criteria.map((c) => ({ id: c.id, name: c.name, description: c.description || undefined })),
       pairwise: project.pairwise,
       scores,
+      notes: Object.keys(notes).length > 0 ? notes : undefined,
     },
   });
 }
@@ -88,14 +98,20 @@ function genId(): string {
 }
 
 // --- Criteria ---
-export function addCriterion(name: string): void {
-  project.criteria.push({ id: genId(), name });
+export function addCriterion(name: string, description = ''): void {
+  project.criteria.push({ id: genId(), name, description });
   notify();
 }
 
 export function updateCriterion(id: string, name: string): void {
   const c = project.criteria.find((c) => c.id === id);
   if (c) c.name = name;
+  notify();
+}
+
+export function updateCriterionDescription(id: string, description: string): void {
+  const c = project.criteria.find((c) => c.id === id);
+  if (c) c.description = description;
   notify();
 }
 
@@ -124,7 +140,19 @@ export function getPairwise(id1: string, id2: string): number {
 
 // --- Vendors ---
 export function addVendor(name: string): void {
-  project.vendors.push({ id: genId(), name, scores: {} });
+  project.vendors.push({ id: genId(), name, scores: {}, notes: {} });
+  notify();
+}
+
+export function setVendorNote(vendorId: string, criterionId: string, note: string): void {
+  const v = project.vendors.find((v) => v.id === vendorId);
+  if (v) {
+    if (note.trim()) {
+      v.notes[criterionId] = note;
+    } else {
+      delete v.notes[criterionId];
+    }
+  }
   notify();
 }
 
