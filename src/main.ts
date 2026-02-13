@@ -584,11 +584,11 @@ function renderVendorsSection(): HTMLElement {
 
   for (const c of sorted) {
     const row = document.createElement('tr');
-    row.className = 'hover:bg-gray-50/50';
+    row.className = 'hover:bg-amber-50 transition-colors';
 
     // Label cell with optional description tooltip
     const labelCell = document.createElement('td');
-    labelCell.className = 'sticky left-0 bg-white px-5 py-3 font-medium text-gray-700 border-r border-gray-200 text-sm z-10';
+    labelCell.className = 'sticky left-0 bg-white group-hover:bg-amber-50 px-5 py-3 font-medium text-gray-700 border-r border-gray-200 text-sm z-10 transition-colors';
     const labelName = h('div', { className: 'whitespace-nowrap' }, c.name);
     labelCell.appendChild(labelName);
     if (c.description) {
@@ -605,9 +605,7 @@ function renderVendorsSection(): HTMLElement {
     for (const v of project.vendors) {
       // Score select
       const scoreCell = document.createElement('td');
-      scoreCell.className = 'px-2 py-2 text-center';
-
-      const cellWrap = h('div', { className: 'flex flex-col items-center gap-1' });
+      scoreCell.className = 'px-2 py-2 text-center relative';
 
       const select = document.createElement('select');
       select.className = 'w-full text-center text-sm py-2 px-1 border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-amber-500 focus:outline-none cursor-pointer';
@@ -622,15 +620,15 @@ function renderVendorsSection(): HTMLElement {
       const vid = v.id;
       const cid = c.id;
       select.addEventListener('change', () => setVendorScore(vid, cid, Number(select.value)));
-      cellWrap.appendChild(select);
+      scoreCell.appendChild(select);
 
-      // Note toggle button
+      // Note toggle button — positioned absolute so it doesn't shift the row
       const existingNote = v.notes[c.id] || '';
       const noteBtn = document.createElement('button');
-      noteBtn.className = `text-xs px-1.5 py-0.5 rounded transition-colors ${existingNote ? 'text-amber-600 hover:text-amber-700' : 'text-gray-300 hover:text-gray-500'}`;
+      noteBtn.className = `absolute -bottom-1 right-1 text-xs leading-none rounded transition-colors ${existingNote ? 'text-amber-600 hover:text-amber-700' : 'text-gray-300 hover:text-gray-500 opacity-0 group-hover:opacity-100'}`;
       noteBtn.innerHTML = existingNote
-        ? `<span class="inline-flex items-center gap-0.5" title="${existingNote.replace(/"/g, '&quot;')}"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2z" clip-rule="evenodd"/></svg></span>`
-        : `<span class="inline-flex items-center gap-0.5"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg></span>`;
+        ? `<span title="${existingNote.replace(/"/g, '&quot;')}"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2z" clip-rule="evenodd"/></svg></span>`
+        : `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>`;
 
       noteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -641,9 +639,8 @@ function renderVendorsSection(): HTMLElement {
           showNoteInput(vid, cid, existingNote, noteBtn);
         }
       });
-      cellWrap.appendChild(noteBtn);
+      scoreCell.appendChild(noteBtn);
 
-      scoreCell.appendChild(cellWrap);
       row.appendChild(scoreCell);
 
       // Weighted score
@@ -653,6 +650,8 @@ function renderVendorsSection(): HTMLElement {
       row.appendChild(weightedCell);
     }
 
+    // Make row a group so note buttons on empty cells show on hover
+    row.classList.add('group');
     tbody.appendChild(row);
   }
 
