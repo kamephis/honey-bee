@@ -603,12 +603,14 @@ function renderVendorsSection(): HTMLElement {
     const r = results.find((r) => r.criterionId === c.id);
 
     for (const v of project.vendors) {
-      // Score select
+      // Score select + note icon in a horizontal row
       const scoreCell = document.createElement('td');
-      scoreCell.className = 'px-2 py-2 text-center relative';
+      scoreCell.className = 'px-2 py-2 text-center';
+
+      const cellRow = h('div', { className: 'flex items-center gap-1' });
 
       const select = document.createElement('select');
-      select.className = 'w-full text-center text-sm py-2 px-1 border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-amber-500 focus:outline-none cursor-pointer';
+      select.className = 'flex-1 min-w-0 text-center text-sm py-2 px-1 border border-gray-200 rounded-md bg-white focus:ring-1 focus:ring-amber-500 focus:outline-none cursor-pointer';
       const currentScore = v.scores[c.id] ?? 0;
       for (const [scoreVal, label] of Object.entries(SCORE_LABELS)) {
         const opt = document.createElement('option');
@@ -620,15 +622,15 @@ function renderVendorsSection(): HTMLElement {
       const vid = v.id;
       const cid = c.id;
       select.addEventListener('change', () => setVendorScore(vid, cid, Number(select.value)));
-      scoreCell.appendChild(select);
+      cellRow.appendChild(select);
 
-      // Note toggle button — positioned absolute so it doesn't shift the row
+      // Note toggle button — inline next to dropdown
       const existingNote = v.notes[c.id] || '';
       const noteBtn = document.createElement('button');
-      noteBtn.className = `absolute -bottom-1 right-1 text-xs leading-none rounded transition-colors ${existingNote ? 'text-amber-600 hover:text-amber-700' : 'text-gray-300 hover:text-gray-500 opacity-0 group-hover:opacity-100'}`;
+      noteBtn.className = `flex-shrink-0 p-0.5 rounded transition-colors ${existingNote ? 'text-amber-600 hover:text-amber-700' : 'text-gray-300 hover:text-gray-500 opacity-0 group-hover:opacity-100'}`;
       noteBtn.innerHTML = existingNote
-        ? `<span title="${existingNote.replace(/"/g, '&quot;')}"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2z" clip-rule="evenodd"/></svg></span>`
-        : `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>`;
+        ? `<span title="${existingNote.replace(/"/g, '&quot;')}"><svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2z" clip-rule="evenodd"/></svg></span>`
+        : `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/></svg>`;
 
       noteBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -639,8 +641,9 @@ function renderVendorsSection(): HTMLElement {
           showNoteInput(vid, cid, existingNote, noteBtn);
         }
       });
-      scoreCell.appendChild(noteBtn);
+      cellRow.appendChild(noteBtn);
 
+      scoreCell.appendChild(cellRow);
       row.appendChild(scoreCell);
 
       // Weighted score
