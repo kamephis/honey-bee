@@ -1,12 +1,14 @@
 export interface Criterion {
   id: string;
   name: string;
+  description: string;
 }
 
 export interface Vendor {
   id: string;
   name: string;
   scores: Record<string, number>; // criterionId -> score (0, 1, 4, 6, 10)
+  notes: Record<string, string>; // criterionId -> note text
 }
 
 export interface Project {

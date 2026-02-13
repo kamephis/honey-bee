@@ -15,9 +15,10 @@ export interface StoredProject {
   name: string;
   vendors: SharedVendor[];
   nwa: {
-    criteria: { id: string; name: string }[];
+    criteria: { id: string; name: string; description?: string }[];
     pairwise: Record<string, number>;
     scores: Record<string, Record<string, number>>; // vendorId -> { criterionId: score }
+    notes?: Record<string, Record<string, string>>; // vendorId -> { criterionId: note }
   };
   tco: {
     years: number;
