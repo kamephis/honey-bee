@@ -1139,6 +1139,644 @@ function addDashboardSlide(pptx: PptxGenJS, stored: StoredProject, wNwa: number,
 }
 
 // ========================================================
+// NEW SLIDES: Agenda, Executive Summary, Charts, etc.
+// ========================================================
+
+function addAgendaSlide(pptx: PptxGenJS, stored: StoredProject): void {
+  const slide = addSlideWithLayout(pptx, { title: 'Agenda' });
+
+  const hasNwa = stored.nwa.criteria.length > 0 && stored.vendors.length > 0;
+  const hasTco = calcTcoResults(stored).length > 0;
+  const hasRisk = calcRiskSummaries(stored).length > 0;
+
+  const sections: { num: string; title: string; desc: string; color: string }[] = [
+    { num: '01', title: 'Management Summary', desc: 'Zentrale Ergebnisse und Empfehlung auf einen Blick', color: AMBER_500 },
+  ];
+  if (hasNwa) {
+    sections.push({ num: String(sections.length + 1).padStart(2, '0'), title: 'Nutzwertanalyse (NWA)', desc: 'Kriteriengewichtung, Netzdiagramm, Detailbewertung aller Anbieter', color: BLUE });
+  }
+  if (hasTco) {
+    sections.push({ num: String(sections.length + 1).padStart(2, '0'), title: 'Total Cost of Ownership (TCO)', desc: 'Kostenvergleich, Jahresentwicklung, ROI- und Break-Even-Analyse', color: AMBER_500 });
+  }
+  if (hasRisk) {
+    sections.push({ num: String(sections.length + 1).padStart(2, '0'), title: 'Risikoanalyse', desc: 'Risikomatrix, Top-Risiken, Detailbewertung pro Anbieter', color: RED });
+  }
+  sections.push({ num: String(sections.length + 1).padStart(2, '0'), title: 'Gesamtbewertung & Empfehlung', desc: 'Gewichtetes Gesamtranking und Handlungsempfehlung', color: GREEN });
+
+  for (let i = 0; i < sections.length; i++) {
+    const s = sections[i];
+    const y = 1.2 + i * 1.05;
+    // Number circle
+    slide.addShape('ellipse' as PptxGenJS.ShapeType, {
+      x: 0.7, y: y + 0.05, w: 0.45, h: 0.45,
+      fill: { color: s.color },
+    });
+    slide.addText(s.num, {
+      x: 0.7, y: y + 0.05, w: 0.45, h: 0.45,
+      fontSize: 12, bold: true, color: WHITE, fontFace: 'Arial', align: 'center', valign: 'middle',
+    });
+    // Title
+    slide.addText(s.title, {
+      x: 1.4, y, w: 7.5, h: 0.3,
+      fontSize: 14, bold: true, color: GRAY_700, fontFace: 'Arial',
+    });
+    // Description
+    slide.addText(s.desc, {
+      x: 1.4, y: y + 0.32, w: 7.5, h: 0.25,
+      fontSize: 10, color: GRAY_600, fontFace: 'Arial',
+    });
+    // Separator
+    if (i < sections.length - 1) {
+      slide.addShape('rect' as PptxGenJS.ShapeType, { x: 1.4, y: y + 0.85, w: 7.5, h: 0.008, fill: { color: 'E5E7EB' } });
+    }
+  }
+}
+
+function addExecutiveSummarySlide(pptx: PptxGenJS, stored: StoredProject, wNwa: number, wTco: number, wRisk: number): void {
+  const slide = addSlideWithLayout(pptx, {
+    title: 'Management Summary',
+    subtitle: `Projekt: ${stored.name}  |  ${stored.vendors.length} Anbieter evaluiert  |  Stand: ${formatDate()}`,
+  });
+
+  const composites = calcComposite(stored, wNwa, wTco, wRisk);
+  const tcoResults = calcTcoResults(stored);
+  const riskSummaries = calcRiskSummaries(stored);
+  const nwaTotals = calcNwaVendorTotals(stored);
+  const nwaSorted = [...nwaTotals].sort((a, b) => b.total - a.total);
+  const tcoSorted = [...tcoResults].sort((a, b) => a.tco - b.tco);
+  const riskSorted = [...riskSummaries].sort((a, b) => a.avgScore - b.avgScore);
+  const roiResults = calcRoi(stored);
+
+  // KPI Cards row
+  const cardW = 2.1;
+  const cardH = 1.2;
+  const cardY = 1.1;
+  const gap = 0.2;
+
+  const cards: { label: string; value: string; sub: string; color: string }[] = [];
+
+  if (composites.length > 0 && composites[0].compositeScore > 0) {
+    cards.push({ label: 'Empfohlener Anbieter', value: composites[0].name, sub: `Score: ${composites[0].compositeScore.toFixed(1)}/100`, color: AMBER_500 });
+  }
+  if (nwaSorted.length > 0 && nwaSorted[0].total > 0) {
+    cards.push({ label: 'NWA Bester', value: nwaSorted[0].vendorName, sub: `${nwaSorted[0].total.toFixed(2)} Pkt.`, color: BLUE });
+  }
+  if (tcoSorted.length > 0) {
+    cards.push({ label: 'Guenstigste TCO', value: tcoSorted[0].optionName, sub: formatCurrency(tcoSorted[0].tco), color: GREEN });
+  }
+  if (riskSorted.length > 0) {
+    cards.push({ label: 'Geringstes Risiko', value: riskSorted[0].vendorName, sub: `Ø ${riskSorted[0].avgScore.toFixed(1)}`, color: '8B5CF6' });
+  }
+
+  const startX = (10 - (cards.length * cardW + (cards.length - 1) * gap)) / 2;
+  cards.forEach((c, i) => {
+    const x = startX + i * (cardW + gap);
+    slide.addShape('rect' as PptxGenJS.ShapeType, {
+      x, y: cardY, w: cardW, h: cardH,
+      fill: { color: WHITE },
+      line: { color: 'E5E7EB', width: 1 },
+      rectRadius: 0.08,
+    });
+    // Top color accent
+    slide.addShape('rect' as PptxGenJS.ShapeType, { x, y: cardY, w: cardW, h: 0.05, fill: { color: c.color }, rectRadius: 0.08 });
+    slide.addText(c.label, {
+      x: x + 0.15, y: cardY + 0.15, w: cardW - 0.3, h: 0.25,
+      fontSize: 8, color: GRAY_600, fontFace: 'Arial',
+    });
+    slide.addText(c.value, {
+      x: x + 0.15, y: cardY + 0.4, w: cardW - 0.3, h: 0.35,
+      fontSize: 13, bold: true, color: GRAY_700, fontFace: 'Arial', shrinkText: true,
+    });
+    slide.addText(c.sub, {
+      x: x + 0.15, y: cardY + 0.8, w: cardW - 0.3, h: 0.25,
+      fontSize: 10, color: c.color, fontFace: 'Arial', bold: true,
+    });
+  });
+
+  // Key findings section
+  let findY = cardY + cardH + 0.5;
+
+  slide.addText('Zentrale Erkenntnisse', {
+    x: 0.5, y: findY, w: 9, h: 0.35,
+    fontSize: 14, bold: true, color: GRAY_700, fontFace: 'Arial',
+  });
+  findY += 0.45;
+
+  const findings: string[] = [];
+
+  // NWA finding
+  if (nwaSorted.length >= 2 && nwaSorted[0].total > 0) {
+    const diff = nwaSorted[0].total - nwaSorted[1].total;
+    findings.push(`Qualitaet: ${nwaSorted[0].vendorName} fuehrt die Nutzwertanalyse mit ${nwaSorted[0].total.toFixed(2)} Punkten an (${diff > 0 ? '+' : ''}${diff.toFixed(2)} Pkt. Vorsprung auf ${nwaSorted[1].vendorName}).`);
+  } else if (nwaSorted.length === 1 && nwaSorted[0].total > 0) {
+    findings.push(`Qualitaet: ${nwaSorted[0].vendorName} erreicht ${nwaSorted[0].total.toFixed(2)} Punkte in der Nutzwertanalyse.`);
+  }
+
+  // TCO finding
+  if (tcoSorted.length >= 2) {
+    const saving = tcoSorted[1].tco - tcoSorted[0].tco;
+    findings.push(`Kosten: ${tcoSorted[0].optionName} ist mit ${formatCurrency(tcoSorted[0].tco)} TCO die guenstigste Option (${formatCurrency(saving)} Ersparnis gegenueber ${tcoSorted[1].optionName}).`);
+  } else if (tcoSorted.length === 1) {
+    findings.push(`Kosten: ${tcoSorted[0].optionName} hat eine TCO von ${formatCurrency(tcoSorted[0].tco)}.`);
+  }
+
+  // ROI finding
+  if (roiResults.length > 0) {
+    const bestRoi = roiResults.sort((a, b) => b.roiPercent - a.roiPercent)[0];
+    if (bestRoi.roiPercent > 0) {
+      findings.push(`ROI: ${bestRoi.optionName} erzielt den besten ROI von ${bestRoi.roiPercent.toFixed(1)}%${bestRoi.breakEvenYear !== null ? ` mit Break-Even in Jahr ${bestRoi.breakEvenYear}` : ''}.`);
+    }
+  }
+
+  // Risk finding
+  if (riskSorted.length > 0) {
+    const totalCritical = riskSummaries.reduce((s, v) => s + v.counts.critical, 0);
+    const totalHigh = riskSummaries.reduce((s, v) => s + v.counts.high, 0);
+    if (totalCritical > 0 || totalHigh > 0) {
+      findings.push(`Risiko: ${totalCritical + totalHigh} kritische/hohe Risiken identifiziert. ${riskSorted[0].vendorName} weist das geringste Durchschnittsrisiko auf (Ø ${riskSorted[0].avgScore.toFixed(1)}).`);
+    } else {
+      findings.push(`Risiko: ${riskSorted[0].vendorName} weist das geringste Durchschnittsrisiko auf (Ø ${riskSorted[0].avgScore.toFixed(1)}).`);
+    }
+  }
+
+  // Composite recommendation
+  if (composites.length >= 2 && composites[0].compositeScore > 0) {
+    findings.push(`Gesamtempfehlung: ${composites[0].name} belegt in der gewichteten Gesamtbewertung Rang 1 mit einem Score von ${composites[0].compositeScore.toFixed(1)}/100.`);
+  }
+
+  for (const f of findings) {
+    if (findY > 6.5) break;
+    // Bullet point
+    slide.addShape('ellipse' as PptxGenJS.ShapeType, {
+      x: 0.7, y: findY + 0.08, w: 0.12, h: 0.12,
+      fill: { color: AMBER_500 },
+    });
+    slide.addText(f, {
+      x: 1.0, y: findY, w: 8.5, h: 0.35,
+      fontSize: 10, color: GRAY_600, fontFace: 'Arial',
+      valign: 'top',
+    });
+    findY += 0.45;
+  }
+}
+
+function addSectionDividerSlide(pptx: PptxGenJS, sectionNum: string, title: string, subtitle: string, color: string): void {
+  const slide = pptx.addSlide();
+  // Left color bar
+  slide.addShape('rect' as PptxGenJS.ShapeType, { x: 0, y: 0, w: 0.15, h: '100%', fill: { color } });
+  // Section number
+  slide.addText(sectionNum, {
+    x: 0.8, y: 2.0, w: 2, h: 0.6,
+    fontSize: 42, bold: true, color: 'E5E7EB', fontFace: 'Arial',
+  });
+  // Title
+  slide.addText(title, {
+    x: 0.8, y: 2.7, w: 8, h: 0.8,
+    fontSize: 28, bold: true, color: GRAY_700, fontFace: 'Arial',
+  });
+  // Subtitle
+  slide.addText(subtitle, {
+    x: 0.8, y: 3.5, w: 8, h: 0.5,
+    fontSize: 14, color: GRAY_600, fontFace: 'Arial',
+  });
+  // Accent line
+  slide.addShape('rect' as PptxGenJS.ShapeType, { x: 0.8, y: 4.2, w: 1.5, h: 0.04, fill: { color } });
+  // Footer
+  slide.addShape('rect' as PptxGenJS.ShapeType, { x: 0.5, y: 7.0, w: 9, h: 0.01, fill: { color: 'E5E7EB' } });
+  slide.addText(`honey-bee  |  ${formatDate()}`, {
+    x: 0.5, y: 7.05, w: 9, h: 0.3,
+    fontSize: 8, color: '9CA3AF', fontFace: 'Arial',
+  });
+}
+
+function addNwaCriteriaWeightsSlide(pptx: PptxGenJS, stored: StoredProject): void {
+  const criteria = stored.nwa.criteria;
+  if (criteria.length === 0) return;
+
+  const { absoluteWeights, relativeWeights } = calcNwaWeights(stored);
+  const sortedCriteria = [...criteria].sort((a, b) => (relativeWeights[b.id] ?? 0) - (relativeWeights[a.id] ?? 0));
+
+  const slide = addSlideWithLayout(pptx, {
+    title: 'Nutzwertanalyse – Kriteriengewichtung',
+    subtitle: `${criteria.length} Kriterien durch Paarvergleich gewichtet  |  Bewertungsskala: 0 (nicht vorhanden) bis 10 (exzellent)`,
+  });
+
+  // Weight bars
+  const maxWeight = Math.max(...Object.values(relativeWeights), 0.01);
+  const barStartY = 1.15;
+  const barH = 0.38;
+  const barGap = 0.08;
+
+  for (let i = 0; i < sortedCriteria.length; i++) {
+    const c = sortedCriteria[i];
+    const y = barStartY + i * (barH + barGap);
+    if (y + barH > 6.8) break;
+    const w = relativeWeights[c.id] ?? 0;
+    const barW = Math.max((w / maxWeight) * 4.5, 0.05);
+
+    // Criterion name
+    slide.addText(c.name, {
+      x: 0.5, y, w: 3.0, h: barH,
+      fontSize: 9, color: GRAY_700, fontFace: 'Arial', valign: 'middle',
+    });
+
+    // Bar
+    slide.addShape('rect' as PptxGenJS.ShapeType, {
+      x: 3.5, y: y + 0.06, w: barW, h: barH - 0.12,
+      fill: { color: BLUE }, rectRadius: 0.04,
+    });
+
+    // Percentage
+    slide.addText(`${(w * 100).toFixed(1)}%`, {
+      x: 3.5 + barW + 0.1, y, w: 0.8, h: barH,
+      fontSize: 9, bold: true, color: BLUE, fontFace: 'Arial', valign: 'middle',
+    });
+
+    // Absolute weight
+    slide.addText(`(abs: ${absoluteWeights[c.id] ?? 0})`, {
+      x: 3.5 + barW + 0.9, y, w: 0.8, h: barH,
+      fontSize: 7, color: GRAY_600, fontFace: 'Arial', valign: 'middle',
+    });
+
+    // Description (if present) on the right
+    if (c.description) {
+      slide.addText(c.description, {
+        x: 5.8, y, w: 3.7, h: barH,
+        fontSize: 7, color: '9CA3AF', fontFace: 'Arial', valign: 'middle',
+        italic: true,
+      });
+    }
+  }
+
+  // Scoring scale reference at bottom
+  const scaleY = Math.min(barStartY + sortedCriteria.length * (barH + barGap) + 0.3, 6.2);
+  if (scaleY < 6.5) {
+    slide.addShape('rect' as PptxGenJS.ShapeType, { x: 0.5, y: scaleY, w: 9, h: 0.008, fill: { color: 'E5E7EB' } });
+    slide.addText('Bewertungsskala:  10 = Exzellent  |  6 = Gut  |  4 = Ausreichend  |  1 = Unzureichend  |  0 = Nicht vorhanden', {
+      x: 0.5, y: scaleY + 0.05, w: 9, h: 0.3,
+      fontSize: 8, color: GRAY_600, fontFace: 'Arial', italic: true,
+    });
+  }
+}
+
+function addNwaRadarChartSlide(pptx: PptxGenJS, stored: StoredProject): void {
+  const criteria = stored.nwa.criteria;
+  const vendors = stored.vendors;
+  if (criteria.length < 3 || vendors.length === 0) return;
+
+  const { relativeWeights } = calcNwaWeights(stored);
+  const sortedCriteria = [...criteria].sort((a, b) => (relativeWeights[b.id] ?? 0) - (relativeWeights[a.id] ?? 0));
+
+  const slide = addSlideWithLayout(pptx, {
+    title: 'Nutzwertanalyse – Netzdiagramm',
+    subtitle: 'Gewichtete Bewertung im Vergleich (hoeher = besser)',
+  });
+
+  // Build chart data
+  const chartData = vendors.map((v) => {
+    const scores = stored.nwa.scores[v.id] || {};
+    return {
+      name: v.name,
+      labels: sortedCriteria.map((c) => c.name),
+      values: sortedCriteria.map((c) => {
+        const raw = scores[c.id] ?? 0;
+        return raw * (relativeWeights[c.id] ?? 0);
+      }),
+    };
+  });
+
+  slide.addChart('radar' as PptxGenJS.CHART_NAME, chartData, {
+    x: 0.5, y: 1.0, w: 6.5, h: 5.5,
+    radarStyle: 'marker',
+    chartColors: vendors.map((_, i) => VENDOR_COLORS[i % VENDOR_COLORS.length]),
+    lineSize: 2,
+    showLegend: true,
+    legendPos: 'b',
+    legendFontSize: 10,
+    catAxisLabelFontSize: 9,
+    valAxisHidden: false,
+  });
+
+  // Score summary on the right
+  const totals = calcNwaVendorTotals(stored);
+  const sorted = [...totals].sort((a, b) => b.total - a.total);
+  slide.addText('Gesamtscores', {
+    x: 7.3, y: 1.2, w: 2.5, h: 0.3,
+    fontSize: 11, bold: true, color: GRAY_700, fontFace: 'Arial',
+  });
+  sorted.forEach((v, i) => {
+    const y = 1.6 + i * 0.4;
+    if (y > 6.0) return;
+    slide.addShape('ellipse' as PptxGenJS.ShapeType, {
+      x: 7.3, y: y + 0.06, w: 0.15, h: 0.15,
+      fill: { color: VENDOR_COLORS[vendors.findIndex((vv) => vv.id === v.vendorId) % VENDOR_COLORS.length] },
+    });
+    slide.addText(v.vendorName, {
+      x: 7.6, y, w: 1.4, h: 0.28,
+      fontSize: 9, color: GRAY_700, fontFace: 'Arial', valign: 'middle',
+    });
+    slide.addText(v.total.toFixed(2), {
+      x: 9.0, y, w: 0.6, h: 0.28,
+      fontSize: 9, bold: true, color: GRAY_700, fontFace: 'Arial', valign: 'middle', align: 'right',
+    });
+  });
+}
+
+function addTcoBarChartSlide(pptx: PptxGenJS, stored: StoredProject): void {
+  const results = calcTcoResults(stored);
+  if (results.length === 0) return;
+
+  const slide = addSlideWithLayout(pptx, {
+    title: 'TCO-Analyse – Kostenstruktur',
+    subtitle: 'Einmalige vs. laufende Kosten pro Anbieter (gestapelt)',
+  });
+
+  const labels = results.map((r) => r.optionName);
+  const chartData = [
+    {
+      name: 'Einmalige Kosten',
+      labels,
+      values: results.map((r) => r.totalInitial),
+    },
+    {
+      name: 'Laufende Kosten (gesamt)',
+      labels,
+      values: results.map((r) => r.totalAnnual * stored.tco.years),
+    },
+  ];
+
+  slide.addChart('bar' as PptxGenJS.CHART_NAME, chartData, {
+    x: 0.5, y: 1.0, w: 9, h: 5.5,
+    barGrouping: 'stacked',
+    chartColors: [AMBER_500, BLUE],
+    showLegend: true,
+    legendPos: 'b',
+    legendFontSize: 10,
+    catAxisLabelFontSize: 10,
+    valAxisLabelFontSize: 9,
+    dataLabelPosition: 'ctr',
+    showValue: false,
+    valGridLine: { style: 'dash', color: 'E5E7EB' },
+  });
+}
+
+function addTcoBreakEvenChartSlide(pptx: PptxGenJS, stored: StoredProject): void {
+  const results = calcTcoResults(stored);
+  const annualBenefit = stored.tco.benefits.reduce((s, b) => s + b.annualAmount, 0);
+  if (results.length === 0) return;
+
+  const slide = addSlideWithLayout(pptx, {
+    title: 'TCO-Analyse – Kostenentwicklung & Break-Even',
+    subtitle: `Kumulative Kosten ueber ${stored.tco.years} Jahre${annualBenefit > 0 ? ` vs. kumulierter Nutzen (${formatCurrency(annualBenefit)}/Jahr)` : ''}`,
+  });
+
+  const yearLabels = Array.from({ length: stored.tco.years + 1 }, (_, i) => `Jahr ${i}`);
+  const chartData: PptxGenJS.OptsChartData[] = [];
+
+  // Cost lines per option
+  for (const r of results) {
+    chartData.push({
+      name: `${r.optionName} (Kosten)`,
+      labels: yearLabels,
+      values: r.yearlyCosts.map((yc) => yc.cumulative),
+    });
+  }
+
+  // Benefit line
+  if (annualBenefit > 0) {
+    chartData.push({
+      name: 'Kumulierter Nutzen',
+      labels: yearLabels,
+      values: Array.from({ length: stored.tco.years + 1 }, (_, i) => annualBenefit * i),
+    });
+  }
+
+  const colors = results.map((_, i) => VENDOR_COLORS[i % VENDOR_COLORS.length]);
+  if (annualBenefit > 0) colors.push(GREEN);
+
+  slide.addChart('line' as PptxGenJS.CHART_NAME, chartData, {
+    x: 0.5, y: 1.0, w: 9, h: 5.5,
+    chartColors: colors,
+    lineSize: 2,
+    showLegend: true,
+    legendPos: 'b',
+    legendFontSize: 10,
+    catAxisLabelFontSize: 9,
+    valAxisLabelFontSize: 9,
+    lineDataSymbol: 'circle',
+    lineDataSymbolSize: 5,
+    valGridLine: { style: 'dash', color: 'E5E7EB' },
+  });
+}
+
+function addRiskTopRisksSlide(pptx: PptxGenJS, stored: StoredProject): void {
+  const summaries = calcRiskSummaries(stored);
+  if (summaries.length === 0) return;
+
+  // Collect all risks across vendors, sorted by score
+  const allRisks: { vendor: string; name: string; probability: number; impact: number; score: number; level: RiskLevel; mitigation: string }[] = [];
+  for (const v of summaries) {
+    for (const r of v.risks) {
+      allRisks.push({ vendor: v.vendorName, ...r });
+    }
+  }
+  allRisks.sort((a, b) => b.score - a.score);
+
+  const criticalHighRisks = allRisks.filter((r) => r.level === 'critical' || r.level === 'high');
+  if (criticalHighRisks.length === 0) return;
+
+  const slide = addSlideWithLayout(pptx, {
+    title: 'Risikoanalyse – Top-Risiken',
+    subtitle: `${criticalHighRisks.length} kritische und hohe Risiken identifiziert – erfordern besondere Aufmerksamkeit`,
+  });
+
+  type CellDef = { text: string; options?: Record<string, unknown> };
+  const hOpts = { bold: true, fill: { color: GRAY_50 }, color: GRAY_700, fontSize: 9, fontFace: 'Arial' };
+  const cOpts = { fontSize: 9, fontFace: 'Arial', color: GRAY_600 };
+
+  const headerRow: CellDef[] = [
+    { text: 'Anbieter', options: { ...hOpts, align: 'left' } },
+    { text: 'Risiko', options: { ...hOpts, align: 'left' } },
+    { text: 'W', options: { ...hOpts, align: 'center' } },
+    { text: 'A', options: { ...hOpts, align: 'center' } },
+    { text: 'Score', options: { ...hOpts, align: 'center' } },
+    { text: 'Stufe', options: { ...hOpts, align: 'center' } },
+    { text: 'Massnahme', options: { ...hOpts, align: 'left' } },
+  ];
+
+  const rows: CellDef[][] = [headerRow];
+  for (const r of criticalHighRisks.slice(0, 15)) {
+    const lc = riskLevelColor(r.level);
+    const lb = riskLevelBg(r.level);
+    rows.push([
+      { text: r.vendor, options: { ...cOpts, align: 'left', bold: true } },
+      { text: r.name, options: { ...cOpts, align: 'left' } },
+      { text: `${r.probability}`, options: { ...cOpts, align: 'center' } },
+      { text: `${r.impact}`, options: { ...cOpts, align: 'center' } },
+      { text: `${r.score}`, options: { ...cOpts, align: 'center', bold: true, color: lc } },
+      { text: RISK_LEVEL_LABELS[r.level], options: { ...cOpts, align: 'center', fill: { color: lb }, color: lc, bold: true } },
+      { text: r.mitigation || '–', options: { ...cOpts, align: 'left' } },
+    ]);
+  }
+
+  slide.addTable(rows as PptxGenJS.TableRow[], {
+    x: 0.5, y: 1.1, w: 9,
+    colW: [1.3, 1.6, 0.4, 0.4, 0.6, 0.8, 3.9],
+    border: { type: 'solid', pt: 0.5, color: 'E5E7EB' },
+    rowH: 0.38,
+    autoPage: true,
+    autoPageRepeatHeader: true,
+  });
+}
+
+function addSummaryRecommendationSlide(pptx: PptxGenJS, stored: StoredProject, wNwa: number, wTco: number, wRisk: number): void {
+  const composites = calcComposite(stored, wNwa, wTco, wRisk);
+  if (composites.length === 0) return;
+
+  const tcoResults = calcTcoResults(stored);
+  const riskSummaries = calcRiskSummaries(stored);
+  const nwaTotals = calcNwaVendorTotals(stored);
+  const nwaSorted = [...nwaTotals].sort((a, b) => b.total - a.total);
+  const tcoSorted = [...tcoResults].sort((a, b) => a.tco - b.tco);
+
+  const slide = pptx.addSlide();
+
+  // Background with amber accent
+  slide.addShape('rect' as PptxGenJS.ShapeType, { x: 0, y: 0, w: '100%', h: 0.06, fill: { color: AMBER_500 } });
+
+  slide.addText('Fazit & Empfehlung', {
+    x: 0.5, y: 0.3, w: 9, h: 0.5,
+    fontSize: 22, bold: true, color: GRAY_700, fontFace: 'Arial',
+  });
+
+  const winner = composites[0];
+
+  // Large recommendation box
+  slide.addShape('rect' as PptxGenJS.ShapeType, {
+    x: 0.5, y: 1.0, w: 9, h: 1.4,
+    fill: { color: AMBER_BG }, rectRadius: 0.1,
+    line: { color: AMBER_500, width: 1.5 },
+  });
+  slide.addText('Empfohlener Anbieter', {
+    x: 0.8, y: 1.1, w: 4, h: 0.3,
+    fontSize: 10, color: AMBER, fontFace: 'Arial', bold: true,
+  });
+  slide.addText(winner.name, {
+    x: 0.8, y: 1.4, w: 5, h: 0.5,
+    fontSize: 26, bold: true, color: GRAY_700, fontFace: 'Arial',
+  });
+  slide.addText(`Gesamtscore: ${winner.compositeScore.toFixed(1)} / 100`, {
+    x: 0.8, y: 1.9, w: 5, h: 0.35,
+    fontSize: 13, color: AMBER, fontFace: 'Arial', bold: true,
+  });
+
+  // Score badge on the right of box
+  slide.addShape('ellipse' as PptxGenJS.ShapeType, {
+    x: 7.8, y: 1.15, w: 1.2, h: 1.1,
+    fill: { color: AMBER_500 },
+  });
+  slide.addText(winner.compositeScore.toFixed(0), {
+    x: 7.8, y: 1.2, w: 1.2, h: 0.7,
+    fontSize: 28, bold: true, color: WHITE, fontFace: 'Arial', align: 'center', valign: 'middle',
+  });
+  slide.addText('/100', {
+    x: 7.8, y: 1.85, w: 1.2, h: 0.3,
+    fontSize: 10, color: WHITE, fontFace: 'Arial', align: 'center',
+  });
+
+  // Dimension breakdown
+  const dimY = 2.7;
+  slide.addText('Bewertung nach Dimensionen', {
+    x: 0.5, y: dimY, w: 9, h: 0.35,
+    fontSize: 13, bold: true, color: GRAY_700, fontFace: 'Arial',
+  });
+
+  const dims: { label: string; rank: string; value: string; color: string }[] = [];
+  if (winner.nwaRank !== null) {
+    const nwaV = nwaSorted.find((v) => v.vendorName === winner.name);
+    dims.push({ label: 'Qualitaet (NWA)', rank: `Rang #${winner.nwaRank}`, value: nwaV ? `${nwaV.total.toFixed(2)} Pkt.` : '–', color: BLUE });
+  }
+  if (winner.tcoRank !== null) {
+    const tcoV = tcoSorted.find((v) => v.optionName === winner.name);
+    dims.push({ label: 'Kosten (TCO)', rank: `Rang #${winner.tcoRank}`, value: tcoV ? formatCurrency(tcoV.tco) : '–', color: AMBER_500 });
+  }
+  if (winner.riskRank !== null) {
+    const riskV = riskSummaries.find((v) => v.vendorName === winner.name);
+    dims.push({ label: 'Risiko', rank: `Rang #${winner.riskRank}`, value: riskV ? `Ø ${riskV.avgScore.toFixed(1)}` : '–', color: RED });
+  }
+
+  const dimCardW = 2.8;
+  const dimCardH = 0.9;
+  const dimStartX = (10 - (dims.length * dimCardW + (dims.length - 1) * 0.2)) / 2;
+
+  dims.forEach((d, i) => {
+    const x = dimStartX + i * (dimCardW + 0.2);
+    slide.addShape('rect' as PptxGenJS.ShapeType, {
+      x, y: dimY + 0.45, w: dimCardW, h: dimCardH,
+      fill: { color: WHITE }, line: { color: 'E5E7EB', width: 1 }, rectRadius: 0.06,
+    });
+    slide.addShape('rect' as PptxGenJS.ShapeType, { x, y: dimY + 0.45, w: dimCardW, h: 0.04, fill: { color: d.color }, rectRadius: 0.06 });
+    slide.addText(d.label, {
+      x: x + 0.15, y: dimY + 0.55, w: dimCardW - 0.3, h: 0.22,
+      fontSize: 9, bold: true, color: GRAY_600, fontFace: 'Arial',
+    });
+    slide.addText(d.value, {
+      x: x + 0.15, y: dimY + 0.78, w: (dimCardW - 0.3) * 0.6, h: 0.28,
+      fontSize: 12, bold: true, color: GRAY_700, fontFace: 'Arial',
+    });
+    slide.addText(d.rank, {
+      x: x + 0.15 + (dimCardW - 0.3) * 0.6, y: dimY + 0.78, w: (dimCardW - 0.3) * 0.4, h: 0.28,
+      fontSize: 10, color: d.color, fontFace: 'Arial', align: 'right', bold: true,
+    });
+  });
+
+  // Comparison ranking
+  const rankY = dimY + 0.45 + dimCardH + 0.5;
+  slide.addText('Gesamtranking', {
+    x: 0.5, y: rankY, w: 9, h: 0.35,
+    fontSize: 13, bold: true, color: GRAY_700, fontFace: 'Arial',
+  });
+
+  for (let i = 0; i < composites.length; i++) {
+    const v = composites[i];
+    const y = rankY + 0.45 + i * 0.45;
+    if (y > 6.5) break;
+
+    const barW = (v.compositeScore / 100) * 5.0;
+    const isWinner = i === 0;
+
+    // Rank
+    slide.addText(`#${v.compositeRank}`, {
+      x: 0.5, y, w: 0.5, h: 0.38,
+      fontSize: 11, bold: true, color: isWinner ? AMBER_500 : GRAY_600, fontFace: 'Arial', valign: 'middle',
+    });
+    // Name
+    slide.addText(v.name, {
+      x: 1.0, y, w: 2.5, h: 0.38,
+      fontSize: 10, color: GRAY_700, fontFace: 'Arial', valign: 'middle', bold: isWinner,
+    });
+    // Bar
+    slide.addShape('rect' as PptxGenJS.ShapeType, {
+      x: 3.5, y: y + 0.07, w: Math.max(barW, 0.05), h: 0.24,
+      fill: { color: isWinner ? AMBER_500 : VENDOR_COLORS[i % VENDOR_COLORS.length] },
+      rectRadius: 0.04,
+    });
+    // Score
+    slide.addText(`${v.compositeScore.toFixed(1)}`, {
+      x: 3.5 + barW + 0.12, y, w: 0.7, h: 0.38,
+      fontSize: 10, bold: true, color: GRAY_700, fontFace: 'Arial', valign: 'middle',
+    });
+  }
+
+  // Footer
+  slide.addShape('rect' as PptxGenJS.ShapeType, { x: 0.5, y: 7.0, w: 9, h: 0.01, fill: { color: 'E5E7EB' } });
+  slide.addText(`honey-bee  |  ${formatDate()}  |  ${stored.name}`, {
+    x: 0.5, y: 7.05, w: 9, h: 0.3,
+    fontSize: 8, color: '9CA3AF', fontFace: 'Arial',
+  });
+}
+
+// ========================================================
 // PUBLIC API
 // ========================================================
 
@@ -1154,6 +1792,14 @@ export async function exportToPptx(opts: PptxExportOptions = {}): Promise<void> 
   const wTco = opts.weightTco ?? 40;
   const wRisk = opts.weightRisk ?? 20;
 
+  const hasNwa = stored.nwa.criteria.length > 0 && stored.vendors.length > 0;
+  const tcoResults = calcTcoResults(stored);
+  const hasTco = tcoResults.length > 0;
+  const riskSummaries = calcRiskSummaries(stored);
+  const hasRisk = riskSummaries.length > 0;
+
+  let sectionNum = 1;
+
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE';
   pptx.author = 'honey-bee';
@@ -1163,31 +1809,50 @@ export async function exportToPptx(opts: PptxExportOptions = {}): Promise<void> 
   // 1. Title slide
   addTitleSlide(pptx, stored);
 
-  // 2. NWA slides
-  if (stored.nwa.criteria.length > 0 && stored.vendors.length > 0) {
+  // 2. Agenda
+  addAgendaSlide(pptx, stored);
+
+  // 3. Executive Summary
+  addSectionDividerSlide(pptx, String(sectionNum).padStart(2, '0'), 'Management Summary', 'Zentrale Ergebnisse und Empfehlung auf einen Blick', AMBER_500);
+  sectionNum++;
+  addExecutiveSummarySlide(pptx, stored, wNwa, wTco, wRisk);
+
+  // 4. NWA Section
+  if (hasNwa) {
+    addSectionDividerSlide(pptx, String(sectionNum).padStart(2, '0'), 'Nutzwertanalyse (NWA)', 'Qualitative Bewertung der Anbieter anhand gewichteter Kriterien', BLUE);
+    sectionNum++;
+    addNwaCriteriaWeightsSlide(pptx, stored);
     addNwaOverviewSlide(pptx, stored);
+    addNwaRadarChartSlide(pptx, stored);
     addNwaDetailSlide(pptx, stored);
   }
 
-  // 3. TCO slides
-  const tcoResults = calcTcoResults(stored);
-  if (tcoResults.length > 0) {
+  // 5. TCO Section
+  if (hasTco) {
+    addSectionDividerSlide(pptx, String(sectionNum).padStart(2, '0'), 'Total Cost of Ownership (TCO)', `Kostenanalyse ueber ${stored.tco.years} Jahre mit ${stored.tco.discountRate}% Diskontierung`, AMBER_500);
+    sectionNum++;
     addTcoOverviewSlide(pptx, stored);
+    addTcoBarChartSlide(pptx, stored);
     addTcoCostDetailSlide(pptx, stored);
+    addTcoBreakEvenChartSlide(pptx, stored);
     addTcoRoiSlide(pptx, stored);
   }
 
-  // 4. Risk slides
-  const riskSummaries = calcRiskSummaries(stored);
-  if (riskSummaries.length > 0) {
+  // 6. Risk Section
+  if (hasRisk) {
+    addSectionDividerSlide(pptx, String(sectionNum).padStart(2, '0'), 'Risikoanalyse', `${riskSummaries.reduce((s, v) => s + v.riskCount, 0)} Risiken bei ${riskSummaries.length} Anbietern identifiziert und bewertet`, RED);
+    sectionNum++;
     addRiskOverviewSlide(pptx, stored);
     addRiskMatrixSlide(pptx, stored);
+    addRiskTopRisksSlide(pptx, stored);
     addRiskDetailSlides(pptx, stored);
   }
 
-  // 5. Dashboard slide
+  // 7. Dashboard & Final Recommendation
   if (stored.vendors.length > 0) {
+    addSectionDividerSlide(pptx, String(sectionNum).padStart(2, '0'), 'Gesamtbewertung & Empfehlung', 'Gewichtetes Gesamtranking und Handlungsempfehlung', GREEN);
     addDashboardSlide(pptx, stored, wNwa, wTco, wRisk);
+    addSummaryRecommendationSlide(pptx, stored, wNwa, wTco, wRisk);
   }
 
   // Generate and download
